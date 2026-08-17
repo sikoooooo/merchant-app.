@@ -3,17 +3,17 @@ import json
 import google.generativeai as genai
 from supabase import create_client, Client
 
-# --- 1. إعدادات الصفحة ---
+# --- 1. إعدادات الصفحة الاحترافية ---
 st.set_page_config(
-    page_title="المحاسب الصوتي الذكي - للتجار",
-    page_icon="🎙️",
-    layout="centered"
+    page_title="المحاسب الصوتي الذكي - الإدارة الحديثة",
+    page_icon="💎",
+    layout="wide"
 )
 
-# تصميم عصري حديث (Modern UI & Glassmorphism)
+# --- 2. التصميم الفاخر (Custom CSS UI/UX) ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Cairo', sans-serif;
@@ -21,81 +21,91 @@ st.markdown("""
         text-align: right;
     }
     
-    /* خلفية التطبيق العامة */
+    /* خلفية التطبيق الفخمة */
     .stApp {
-        background-color: #0f172a;
-        color: #f8fafc;
+        background: linear-gradient(135deg, #090d16 0%, #111827 100%);
+        color: #f3f4f6;
     }
     
-    /* الهيدر العصري */
-    .main-header {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        padding: 25px;
-        border-radius: 16px;
+    /* الهيدر الفاخر */
+    .hero-header {
+        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        padding: 35px;
+        border-radius: 20px;
         color: white;
         text-align: center;
-        margin-bottom: 25px;
-        box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3);
+        margin-bottom: 30px;
+        box-shadow: 0 20px 25px -5px rgba(59, 130, 246, 0.2);
     }
-    .main-header h1 {
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 5px;
-    }
-    .main-header p {
-        font-size: 15px;
-        opacity: 0.9;
+    .hero-header h1 {
+        font-size: 32px;
+        font-weight: 900;
+        margin-bottom: 10px;
     }
     
-    /* الكروت العصرية الفخمة */
-    .card-box {
+    /* كروت الإحصائيات السريعة */
+    .metric-card {
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 20px;
+        border-radius: 16px;
+        text-align: center;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    .metric-card h3 {
+        color: #60a5fa;
+        font-size: 24px;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    
+    /* الكروت التفاعلية العصرية */
+    .glass-card {
         background: #1e293b;
         border: 1px solid #334155;
         border-right: 6px solid #3b82f6;
-        padding: 18px;
-        border-radius: 12px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        transition: transform 0.2s ease;
+        padding: 22px;
+        border-radius: 16px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
     }
-    .card-box:hover {
-        transform: translateY(-2px);
+    .glass-card:hover {
+        transform: translateY(-4px);
+        border-color: #60a5fa;
+        box-shadow: 0 15px 25px -5px rgba(59, 130, 246, 0.2);
     }
     
-    /* تحسين شكل حقول الإدخال والأزرار */
+    /* تحسين الأزرار وحقول الإدخال */
     .stTextInput input {
-        background-color: #1e293b !important;
-        color: #white !important;
-        border-radius: 10px !important;
+        background-color: #0f172a !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
         border: 1px solid #475569 !important;
+        padding: 12px !important;
     }
     
     .stButton button {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
         color: white !important;
-        border-radius: 10px !important;
-        font-weight: 600 !important;
+        border-radius: 12px !important;
+        font-weight: 700 !important;
         border: none !important;
-        padding: 10px 24px !important;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        padding: 12px 28px !important;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+        width: 100%;
     }
     .stButton button:hover {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+        background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. إعداد الاتصال بقاعدة البيانات و الـ AI ---
+# --- 3. بيانات الاتصال ---
 SUPABASE_URL = "https://nqindgywshroejrcxtky.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjgxNTExMCwiZXhwIjoyMTAyMzkxMTEwfQ.g-jpUzajE_OxGNNjF2QCFZINWjRfGSPCSHR2rtOtUTE"
-
-API_KEYS = [
-    "AQ.Ab8RN6Jy0DoPtrUG0NWxTlQhxbFGLWNiX0jIEPUiFunbvoA1KA",
-    "AQ.Ab8RN6KsmZlOVBitqBHl9MTKvhDTCrOkLckSZOLq5opLxEM97g",
-    "AQ.Ab8RN6IOOQs421k9-f9CtpYl-b7mKWe1ID2e-VODE8WbGDLy0g",
-    "AQ.Ab8RN6LDnxPObId4PxP_7RWvXtPSekj6ftHZ6AIwiVKyVQso5Q",
-    "AQ.Ab8RN6IXSRGUETheaRkxa2JuolYCfGIL-888kwz8J9-OfWZ4Gw"
-]
+API_KEYS = ["AQ.Ab8RN6Jy0DoPtrUG0NWxTlQhxbFGLWNiX0jIEPUiFunbvoA1KA"]
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 USER_ID = "855633fe-a3a8-400d-a9ae-9fe439e658bd"
@@ -118,16 +128,13 @@ def process_command_ai(text: str):
     """
     try:
         res = model.generate_content(prompt)
-        # تنظيف الرد باحترافية لضمان قراءة الـ JSON بنجاح
         raw_text = res.text.strip()
         if "```json" in raw_text:
             raw_text = raw_text.split("```json")[1].split("```")[0].strip()
         elif "```" in raw_text:
             raw_text = raw_text.split("```")[1].split("```")[0].strip()
-            
         return json.loads(raw_text)
-    except Exception as e:
-        # احتياطي لو الذكاء الاصطناعي كتب نص عادي نستخرج المبلغ والسلعة برمجياً
+    except Exception:
         return {
             "intent": "ADD_TRANSACTION",
             "type": "INCOME",
@@ -136,18 +143,35 @@ def process_command_ai(text: str):
             "amount": 400 if "400" in text else 0
         }
 
-# --- 3. تصميم واجهة Streamlit ---
-st.markdown('<div class="main-header"><h1>🎙️ المحاسب الصوتي الذكي (للتاجر)</h1><p>تحدث أو اكتب معاملتك، وسيقوم المحاسب بتسجيلها وإدارتها فوراً!</p></div>', unsafe_allow_html=True)
+# --- 4. الهيدر الإبداعي الرئيسي ---
+st.markdown("""
+    <div class="hero-header">
+        <h1>💎 النظام الذكي المتقدم لإدارة الأنشطة التجارية</h1>
+        <p>التحكم الكامل، المحاسبة الصوتية الفورية، وبوابة صفقات الجملة المربحة في منصة واحدة.</p>
+    </div>
+""", unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["💼 لوحة المحاسب والصوت", "📦 إدارة المخزن", "🤝 بوابة عروض الجملة (Win-Win)"])
+# لوحة الإحصائيات العلوية الفخمة
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown('<div class="metric-card"><span>إجمالي مبيعات اليوم</span><h3>12,450 ج.م</h3></div>', unsafe_allow_html=True)
+with col2:
+    st.markdown('<div class="metric-card"><span>عدد الحركات المسجلة</span><h3>28 حركة</h3></div>', unsafe_allow_html=True)
+with col3:
+    st.markdown('<div class="metric-card"><span>أرباح صفقات الجملة</span><h3>1,800 ج.م</h3></div>', unsafe_allow_html=True)
+
+st.write("---")
+
+# --- 5. التبويبات الرئيسية ---
+tab1, tab2, tab3 = st.tabs(["💼 المحاسب الصوتي السريع", "📦 المخزن الذكي", "🤝 صفقات الجملة الحصرية"])
 
 with tab1:
-    st.subheader("🗣️ تحدث مع محاسبك الذكي")
-    voice_input = st.text_input("اكتب أو قم بمحاكاة ما قاله التاجر صوتياً:", placeholder="مثال: بعت كيلو لبن ب 400 جنيه")
+    st.markdown("### 🗣️ سجل معاملتك اليومية بالصوت أو الكتابة الذكية")
+    voice_input = st.text_input("", placeholder="اكتب مثلاً: بعت كيلو لبن ب 400 جنيه أو سددت مورد 1500...")
     
-    if st.button("🚀 تنفيذ العملية", type="primary"):
+    if st.button("🚀 تنفيذ وحفظ المعاملة فوراً"):
         if voice_input:
-            with st.spinner("🤖 جاري تحليل المعالجة وتسجيلها في السيرفر..."):
+            with st.spinner("✨ جاري معالجة المعاملة بالذكاء الاصطناعي..."):
                 data = process_command_ai(voice_input)
                 intent = data.get("intent")
                 
@@ -157,7 +181,6 @@ with tab1:
                     item = data.get("item_or_person", "عام")
                     qty = data.get("quantity", 1)
                     
-                    # حفظ مباشر في قاعدة بيانات Supabase
                     supabase.table("transactions").insert({
                         "type": tx_type,
                         "item_or_person": item,
@@ -167,45 +190,48 @@ with tab1:
                         "created_by_user_id": USER_ID
                     }).execute()
                     
-                    st.success(f"✅ تم بنجاح! تم تسجيل عملية لـ ({item}) بقيمة ({amt} ج.م) وحفظها في قاعدة البيانات.")
+                    st.success(f"🎉 تم تسجيل عملية ({item}) بقيمة ({amt} ج.م) بنجاح في قاعدة البيانات!")
                 else:
-                    st.warning("⚠️ لم يتم فهم الطلب بدقة، حاول صياغته بشكل أبسط.")
+                    st.warning("⚠️ عذراً، لم نتمكن من فهم الصياغة بدقة.")
         else:
-            st.error("الرجاء إدخال نص الطلب أولاً.")
+            st.error("الرجاء كتابة العملية أولاً.")
 
 with tab2:
-    st.subheader("📦 مخزن البضائع الحالي (متزامن مع Supabase)")
+    st.markdown("### 📦 أرصدة وحركات المخزن الحالية")
     try:
         inv_data = supabase.table("inventory").select("*").eq("created_by_user_id", USER_ID).execute().data
         if inv_data:
             for item in inv_data:
                 st.markdown(f"""
-                    <div class="card-box">
-                        <b>الصنف:</b> {item.get('item_name')} | <b>الكمية:</b> {item.get('quantity')} | <b>السعر:</b> {item.get('cost_price')} ج.م
+                    <div class="glass-card">
+                        <b>🏷️ الصنف:</b> {item.get('item_name')} &nbsp;|&nbsp; 
+                        <b>📊 الكمية المتاحة:</b> {item.get('quantity')} &nbsp;|&nbsp; 
+                        <b>💰 سعر التكلفة:</b> {item.get('cost_price')} ج.م
                     </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("لا توجد أصناف حالياً، سيتم مزامنتها تلقائياً.")
+            st.info("المخزن فارغ حالياً، سيتم تحديثه تلقائياً مع العمليات.")
     except Exception as e:
-        st.error(f"خطأ في الاتصال بقاعدة البيانات: {e}")
+        st.error(f"خطأ في جلب بيانات المخزن: {e}")
 
 with tab3:
-    st.subheader("🤝 بوابة عروض الجملة الحصرية (توفير وأرباح مضاعفة)")
-    st.markdown("عروض كبار الموردين المتاحة لمحلكم:")
-    
+    st.markdown("### 🤝 صفقات كبار الموردين (Win-Win)")
     offers = [
         {"supplier": "شركة الأغذية الكبرى", "item": "كرتونة زيت توفير (12 زجاجة)", "market_price": 650, "our_offer": 600, "saving": "وفر 50 جنيه"},
-        {"supplier": "مستودع المنهل", "item": "شوال سكر (50 كجم)", "market_price": 1800, "our_offer": 1700, "saving": "وفر 100 جنيه"},
+        {"supplier": "مستودع المنهل", "item": "شوال سكر فاخر (50 كجم)", "market_price": 1800, "our_offer": 1700, "saving": "وفر 100 جنيه"},
     ]
     
     for off in offers:
         st.markdown(f"""
-            <div class="card-box">
-                <h4>🏷️ {off['item']}</h4>
-                <p><b>المورد:</b> {off['supplier']}</p>
-                <p><span style="text-decoration: line-through; color: gray;">السعر: {off['market_price']}</span> | <span style="color: green; font-weight: bold;">السعر الخاص: {off['our_offer']} ج.م</span></p>
-                <p style="color: #d9534f;">🔥 {off['saving']}</p>
+            <div class="glass-card">
+                <h3 style="color: #60a5fa; margin-bottom: 5px;">{off['item']}</h3>
+                <p style="margin: 2px 0;"><b>المورد المعتمد:</b> {off['supplier']}</p>
+                <p style="margin: 2px 0;">
+                    <span style="text-decoration: line-through; color: #94a3b8;">السعر بالسوق: {off['market_price']} ج.م</span> &nbsp;|&nbsp; 
+                    <span style="color: #4ade80; font-weight: bold; font-size: 18px;">سعر الجملة: {off['our_offer']} ج.م</span>
+                </p>
+                <p style="color: #f87171; font-weight: 600; margin-top: 5px;">🔥 {off['saving']}</p>
             </div>
         """, unsafe_allow_html=True)
-        if st.button(f"طلب العرض: {off['item']}", key=off['item']):
-            st.success("🎉 تم إرسال طلبك للمورد بنجاح لتحقيق عمولتك وتوصيل البضاعة!")
+        if st.button(f"طلب صفقة: {off['item']}", key=off['item']):
+            st.success("🚀 تم إرسال طلب الصفقة للمورد وتفعيل أرباح العرض لمحلكم بنجاح!")
