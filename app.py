@@ -110,9 +110,9 @@ def process_command_ai(text: str):
     أنت محاسب قانوني خبير بالنظام المحاسبي العالمي. افحص هذا النص التجاري بدقة وصنفه إلى النوع والبند الصحيح:
     1. "type": هل هي إيراد (INCOME) أم مصروف (EXPENSE)؟
     2. "category": إذا كانت مصروف (EXPENSE)، اختر بدقة واحداً من هذه البنود فقط:
-       - "مصاريف دعاية وإعلان" (لأي شيء يخص التسويق والاعلانات والملصقات الدعائية).
-       - "مصاريف تشغيلية" (لأي شيء يخص نشاط المحل اليومي المباشر، شراء خامات، كهرباء، إيجار، صيانة).
-       - "مصاريف إدارية" (مرتبات، أدوات مكتبية، تراخيص).
+       - "مصاريف دعاية وإعلان"
+       - "مصاريف تشغيلية"
+       - "مصاريف إدارية"
     3. "item_or_person": اسم الصنف أو الخدمة الصافي.
     4. "quantity": الكمية (افتراضها 1 إن لم تذكر).
     5. "amount": المبلغ المذكور كأرقام صحيحة صريحة.
@@ -154,7 +154,7 @@ def process_command_ai(text: str):
         return {
             "intent": "ADD_TRANSACTION",
             "type": "INCOME" if is_sale else "EXPENSE",
-            "category": "مصاريف تشغيلية" if not is_sale else "",
+            "category": "مصاريف تشغيلية",
             "item_or_person": text,
             "quantity": 1,
             "amount": extracted_amount
@@ -190,56 +190,56 @@ with tab1:
     """, unsafe_allow_html=True)
 
     st.markdown("### 🗣️ سجل معاملتك التجارية بالصوت أو الكتابة:")
-    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: اشترينا ملصقات دعائية ب 500 أو دفعنا كهرباء ب 2000...", label_visibility="collapsed")
-    
-    if st.button("🚀 تنفيذ وحفظ المعاملة"):
-        if voice_input:
-            with st.spinner("✨ جاري تحليل المعاملة بالذكاء الاصطناعي المحاسبي..."):
-                data = process_command_ai(voice_input)
-                intent = data.get("intent")
+print_placeholder = "مثال: اشترينا ملصقات دعائية ب 500 أو دفعنا كهرباء ب 2000..."
+voice_input = st.text_input("أدخل حركة التاجر:", placeholder=print_placeholder, label_visibility="collapsed")
+
+if st.button("🚀 تنفيذ وحفظ المعاملة"):
+    if voice_input:
+        with st.spinner("✨ جاري تحليل المعاملة بالذكاء الاصطناعي المحاسبي..."):
+            data = process_command_ai(voice_input)
+            intent = data.get("intent")
+            
+            if intent == "ADD_TRANSACTION":
+                amt = data.get("amount", 0)
+                tx_type = data.get("type", "EXPENSE")
+                tx_category = data.get("category", "مصاريف تشغيلية")
+                item = data.get("item_or_person", "عام")
+                qty = data.get("quantity", 1)
                 
-                if intent == "ADD_TRANSACTION":
-                    amt = data.get("amount", 0)
-                    tx_type = data.get("type", "EXPENSE")
-                    tx_category = data.get("category", "مصروفات عامة") # تصنيف تلقائي لو النوع EXPENSE
-                    item = data.get("item_or_person", "عام")
-                    qty = data.get("quantity", 1)
-                    
-                    supabase.table("transactions").insert({
-                        "type": tx_type,
-                        "item_or_person": item,
-                        "quantity": qty,
-                        "amount": amt,
-                        "raw_text": voice_input,
-                        "created_by_user_id": USER_ID,
-                        "category": tx_category # إضافة عمود التصنيف لقاعدة البيانات
-                    }).execute()
-                    
-                    if tx_type == "INCOME":
-                        confirm_msg = f"✅ تم بنجاح! تسجيل مبيعات لـ ({item}) بقيمة ({amt} ج.م)"
-                        border_color = "#10b981"
-                    else:
-                        # عرض التصنيف الدقيق في رسالة التأكيد
-                        confirm_msg = f"✅ تم بنجاح! تسجيل ({tx_category}) لـ ({item}) بقيمة ({amt} ج.م)"
-                        border_color = "#f59e0b"
-                    
-                    st.markdown(f"""
-                        <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid {border_color}; padding: 16px; border-radius: 14px; margin-top: 15px;">
-                            <p style="margin: 0; color: #f3f4f6; font-size: 15px; font-weight: bold; text-align: center;">{confirm_msg}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    st.markdown(f"""
-                        <script>
-                            const speech = new SpeechSynthesisUtterance("{confirm_msg}");
-                            speech.lang = 'ar-EG';
-                            window.speechSynthesis.speak(speech);
-                        </script>
-                    """, unsafe_allow_html=True)
+                supabase.table("transactions").insert({
+                    "type": tx_type,
+                    "item_or_person": item,
+                    "quantity": qty,
+                    "amount": amt,
+                    "raw_text": voice_input,
+                    "created_by_user_id": USER_ID,
+                    "category": tx_category
+                }).execute()
+                
+                if tx_type == "INCOME":
+                    confirm_msg = f"✅ تم بنجاح! تسجيل مبيعات لـ ({item}) بقيمة ({amt} ج.م)"
+                    border_color = "#10b981"
                 else:
-                    st.warning("⚠️ عذراً، لم أستطع فهم العملية بدقة. جرب صياغة أبسط.")
-        else:
-            st.error("الرجاء كتابة العملية أولاً.")
+                    confirm_msg = f"✅ تم بنجاح! تسجيل ({tx_category}) لـ ({item}) بقيمة ({amt} ج.م)"
+                    border_color = "#f59e0b"
+                
+                st.markdown(f"""
+                    <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid {border_color}; padding: 16px; border-radius: 14px; margin-top: 15px;">
+                        <p style="margin: 0; color: #f3f4f6; font-size: 15px; font-weight: bold; text-align: center;">{confirm_msg}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown(f"""
+                    <script>
+                        const speech = new SpeechSynthesisUtterance("{confirm_msg}");
+                        speech.lang = 'ar-EG';
+                        window.speechSynthesis.speak(speech);
+                    </script>
+                """, unsafe_allow_html=True)
+            else:
+                st.warning("⚠️ عذراً، لم أستطع فهم العملية بدقة. جرب صياغة أبسط.")
+    else:
+        st.error("الرجاء كتابة العملية أولاً.")
 
 with tab2:
     st.markdown("### 📦 أرصدة وحركات المخزن الحالية")
@@ -275,3 +275,6 @@ with tab3:
                 </p>
                 <p style="color: #f87171; font-weight: 600; margin-top: 5px;">🔥 {off['saving']}</p>
             </div>
+        """, unsafe_allow_html=True)
+        if st.button(f"طلب صفقة: {off['item']}", key=off['item']):
+            st.success("🚀 تم إرسال طلب الصفقة للمورد وتفعيل أرباح العرض لمحلكم بنجاح!")
