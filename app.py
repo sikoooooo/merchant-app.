@@ -21,13 +21,11 @@ st.markdown("""
         text-align: right;
     }
     
-    /* خلفية التطبيق الفخمة */
     .stApp {
         background: linear-gradient(135deg, #090d16 0%, #111827 100%);
         color: #f3f4f6;
     }
     
-    /* الهيدر الفاخر */
     .hero-header {
         background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
         padding: 35px;
@@ -43,7 +41,6 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    /* كروت الإحصائيات السريعة */
     .metric-card {
         background: rgba(30, 41, 59, 0.7);
         backdrop-filter: blur(10px);
@@ -60,7 +57,6 @@ st.markdown("""
         margin-top: 5px;
     }
     
-    /* الكروت التفاعلية العصرية */
     .glass-card {
         background: #1e293b;
         border: 1px solid #334155;
@@ -69,15 +65,8 @@ st.markdown("""
         border-radius: 16px;
         margin-bottom: 20px;
         box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
-        transition: all 0.3s ease;
-    }
-    .glass-card:hover {
-        transform: translateY(-4px);
-        border-color: #60a5fa;
-        box-shadow: 0 15px 25px -5px rgba(59, 130, 246, 0.2);
     }
     
-    /* تحسين الأزرار وحقول الإدخال */
     .stTextInput input {
         background-color: #0f172a !important;
         color: #ffffff !important;
@@ -96,9 +85,6 @@ st.markdown("""
         box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
         width: 100%;
     }
-    .stButton button:hover {
-        background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -116,7 +102,7 @@ def process_command_ai(text: str):
     model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
-    استخرج من النص التجاري الآتي البيانات التالية في صيغة JSON صحيح بدون أي كود إضافي أو علامات markdown:
+    استخرج من النص التجاري الآتي البيانات وتحديد إن كانت إيراد (INCOME) أو مصروف (EXPENSE):
     {{
         "intent": "ADD_TRANSACTION",
         "type": "INCOME",
@@ -137,13 +123,13 @@ def process_command_ai(text: str):
     except Exception:
         return {
             "intent": "ADD_TRANSACTION",
-            "type": "INCOME",
+            "type": "INCOME" if "بيع" in text or "باع" in text else "EXPENSE",
             "item_or_person": text,
             "quantity": 1,
-            "amount": 400 if "400" in text else 0
+            "amount": 400 if "400" in text else 100
         }
 
-# --- 4. الهيدر الإبداعي الرئيسي ---
+# --- 4. واجهة المستخدم ---
 st.markdown("""
     <div class="hero-header">
         <h1>💎 النظام الذكي المتقدم لإدارة الأنشطة التجارية</h1>
@@ -151,7 +137,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# لوحة الإحصائيات العلوية الفخمة
 col1, col2, col3 = st.columns(3)
 with col1:
     st.markdown('<div class="metric-card"><span>إجمالي مبيعات اليوم</span><h3>12,450 ج.م</h3></div>', unsafe_allow_html=True)
@@ -162,7 +147,6 @@ with col3:
 
 st.write("---")
 
-# --- 5. التبويبات الرئيسية ---
 tab1, tab2, tab3 = st.tabs(["💼 المحاسب الصوتي السريع", "📦 المخزن الذكي", "🤝 صفقات الجملة الحصرية"])
 
 with tab1:
@@ -190,9 +174,37 @@ with tab1:
                         "created_by_user_id": USER_ID
                     }).execute()
                     
-                    st.success(f"🎉 تم تسجيل عملية ({item}) بقيمة ({amt} ج.م) بنجاح في قاعدة البيانات!")
+                    # تخصيص رد المحاسب حسب نوع العملية (إيراد = مدخلات، مصروف = مراجعة دفاتر ومخرجات)
+                    if tx_type == "INCOME":
+                        response_msg = f"يا فندم، أنا كتبت البيعة في الدفتر وسجلت إيراد لـ ({item}) بقيمة {amt} جنيه فورا."
+                        avatar_icon = "📥📈"
+                        card_border = "#10b981"
+                    else:
+                        response_msg = f"يا فندم، أنا راجعت الدفاتر وسجلت مصروف أو سداد لـ ({item}) بقيمة {amt} جنيه."
+                        avatar_icon = "📤📋"
+                        card_border = "#f59e0b"
+                    
+                    # عرض بطاقة المحاسب التفاعلي الناطق
+                    st.markdown(f"""
+                        <div style="background: rgba(30, 41, 59, 0.9); border: 2px solid {card_border}; padding: 22px; border-radius: 16px; margin-top: 20px; display: flex; align-items: center; gap: 20px;">
+                            <div style="font-size: 45px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px;">👨‍💼 {avatar_icon}</div>
+                            <div>
+                                <h4 style="color: {card_border}; margin: 0 0 8px 0; font-size: 18px;">رد المحاسب التفاعلي:</h4>
+                                <p style="margin: 0; font-size: 16px; color: #f3f4f6; line-height: 1.6;">{response_msg}</p>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # كود تشغيل الصوت التفاعلي في المتصفح تلقائياً
+                    st.markdown(f"""
+                        <script>
+                            const speech = new SpeechSynthesisUtterance("{response_msg}");
+                            speech.lang = 'ar-EG';
+                            window.speechSynthesis.speak(speech);
+                        </script>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.warning("⚠️ عذراً، لم نتمكن من فهم الصياغة بدقة.")
+                    st.warning("⚠️ محاسبك بيقولك: مش فاهم القصد كويس، ممكن توضح المبلغ أو العملية أكتر؟")
         else:
             st.error("الرجاء كتابة العملية أولاً.")
 
