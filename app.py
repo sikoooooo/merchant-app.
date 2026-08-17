@@ -10,29 +10,77 @@ st.set_page_config(
     layout="centered"
 )
 
+# تصميم عصري حديث (Modern UI & Glassmorphism)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    
     html, body, [class*="css"] {
         font-family: 'Cairo', sans-serif;
         direction: rtl;
         text-align: right;
     }
+    
+    /* خلفية التطبيق العامة */
+    .stApp {
+        background-color: #0f172a;
+        color: #f8fafc;
+    }
+    
+    /* الهيدر العصري */
     .main-header {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-        padding: 20px;
-        border-radius: 15px;
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        padding: 25px;
+        border-radius: 16px;
         color: white;
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3);
     }
+    .main-header h1 {
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    .main-header p {
+        font-size: 15px;
+        opacity: 0.9;
+    }
+    
+    /* الكروت العصرية الفخمة */
     .card-box {
-        background-color: #f8f9fa;
-        border-right: 5px solid #2a5298;
-        padding: 15px;
-        border-radius: 8px;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-right: 6px solid #3b82f6;
+        padding: 18px;
+        border-radius: 12px;
         margin-bottom: 15px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        transition: transform 0.2s ease;
+    }
+    .card-box:hover {
+        transform: translateY(-2px);
+    }
+    
+    /* تحسين شكل حقول الإدخال والأزرار */
+    .stTextInput input {
+        background-color: #1e293b !important;
+        color: #white !important;
+        border-radius: 10px !important;
+        border: 1px solid #475569 !important;
+    }
+    
+    .stButton button {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+        color: white !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        border: none !important;
+        padding: 10px 24px !important;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+    .stButton button:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
     }
     </style>
 """, unsafe_allow_html=True)
