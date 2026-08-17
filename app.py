@@ -78,7 +78,6 @@ st.markdown("""
         width: 100%;
     }
 
-    /* أنيميشن حركة أيقونة المحاسب والآلة الحسابية 3D */
     @keyframes iconFloat {
         0%, 100% { transform: translateY(0px) scale(1); }
         50% { transform: translateY(-6px) scale(1.05); }
@@ -107,15 +106,21 @@ def process_command_ai(text: str):
     model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
-    استخرج من النص التجاري الآتي البيانات وتحديد إن كانت إيراد (INCOME) أو مصروف (EXPENSE):
+    استخرج بدقة تامة من النص التجاري الآتي:
+    1. نوع المعاملة: هل هي إيراد/مبيعات (INCOME) أم مصروف/سداد (EXPENSE)؟
+    2. اسم الصنف أو السلعة أو الغرض (item_or_person).
+    3. الكمية (quantity) - إن لم توضع افتراضها 1.
+    4. المبلغ المالي الصحيح بالجنيه كأرقام صريحة (amount) كما كتبه المستخدم تماماً بدون أي تغيير.
+    
+    أجب بصيغة JSON فقط بهذا الشكل وبدون أي نصوص إضافية:
     {{
         "intent": "ADD_TRANSACTION",
         "type": "INCOME",
-        "item_or_person": "اسم السلعة أو الشخص المذكور",
+        "item_or_person": "اسم السلعة",
         "quantity": 1,
-        "amount": الرقم الصحيح كقيمة مالية
+        "amount": 0
     }}
-    النص: "{text}"
+    النص التجاري: "{text}"
     """
     try:
         res = model.generate_content(prompt)
@@ -131,7 +136,7 @@ def process_command_ai(text: str):
             "type": "INCOME" if "بيع" in text or "باع" in text else "EXPENSE",
             "item_or_person": text,
             "quantity": 1,
-            "amount": 50 if "50" in text else 400
+            "amount": 500
         }
 
 # --- 4. واجهة المستخدم ---
@@ -155,7 +160,6 @@ st.write("---")
 tab1, tab2, tab3 = st.tabs(["💼 المحاسب الذكي", "📦 المخزن الذكي", "🤝 صفقات الجملة الحصرية"])
 
 with tab1:
-    # أيقونة 3D محاسبية احترافية صريحة (حسابات وأرباح مالية) تعوض تماماً الصور العشوائية
     st.markdown("""
         <div class="accountant-3d-badge">
             <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); width: 90px; height: 90px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(37, 99, 235, 0.5); border: 2px solid rgba(255,255,255,0.2);">
@@ -165,11 +169,11 @@ with tab1:
     """, unsafe_allow_html=True)
 
     st.markdown("### 🗣️ سجل معاملتك التجارية بالصوت أو الكتابة:")
-    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: بعت كيلو لبن ب 50 جنية", label_visibility="collapsed")
+    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: مبيعات ب 500 جنية دفاتر", label_visibility="collapsed")
     
     if st.button("🚀 تنفيذ وحفظ المعاملة"):
         if voice_input:
-            with st.spinner("✨ جاري معالجة المعاملة وحفظها..."):
+            with st.spinner("✨ جاري تحليل المعاملة بالذكاء الاصطناعي..."):
                 data = process_command_ai(voice_input)
                 intent = data.get("intent")
                 
@@ -188,7 +192,6 @@ with tab1:
                         "created_by_user_id": USER_ID
                     }).execute()
                     
-                    # رسالة تأكيد نظيفة ومختصرة تختفي بأناقة بعد الأداء
                     if tx_type == "INCOME":
                         confirm_msg = f"✅ تم بنجاح! تسجيل بيع ({item}) بقيمة ({amt} ج.م)"
                         border_color = "#10b981"
@@ -196,14 +199,12 @@ with tab1:
                         confirm_msg = f"✅ تم بنجاح! تسجيل المصروف أو السداد لـ ({item}) بقيمة ({amt} ج.م)"
                         border_color = "#f59e0b"
                     
-                    # عرض كارت التأكيد المنفصل
                     st.markdown(f"""
                         <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid {border_color}; padding: 16px; border-radius: 14px; margin-top: 15px;">
                             <p style="margin: 0; color: #f3f4f6; font-size: 15px; font-weight: bold; text-align: center;">{confirm_msg}</p>
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # نطق الرد الصوتي
                     st.markdown(f"""
                         <script>
                             const speech = new SpeechSynthesisUtterance("{confirm_msg}");
