@@ -1,5 +1,6 @@
 import streamlit as st
 import json
+import re
 import google.generativeai as genai
 from supabase import create_client, Client
 
@@ -106,24 +107,25 @@ def process_command_ai(text: str):
     model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
-    أنت محاسب ذكي ومدقق تجاري محترف يفهم العامية المصرية تماماً. افحص هذا النص التجاري بدقة:
-    1. حدد نوع المعاملة (type):
-       - إذا كان النص يدل على بيع أو إيراد (مثل: بعت، بيع، قبضت، مبيعات) ➔ اختر "INCOME".
-       - إذا كان النص يدل على شراء بضاعة، مصاريف، أو سداد أجور (مثل: اشترينا، اشتريت، دفعت، سددت، صرفت) ➔ اختر "EXPENSE".
-    2. صنف الغرض بدقة (item_or_person): هل هو (مشتريات بضاعة، مصروفات تشغيل، أجور عمال، إلخ) مع اسم الصنف.
-    3. استخرج الكمية (quantity) والكمية الافتراضية 1 إن لم تذكر.
-    4. استخرج المبلغ المالي بدقة كأرقام صحيحة (amount).
+    أنت محاسب ذكي ومحترف جداً. استخرج بدقة تامة من النص التجاري التالي:
+    1. نوع المعاملة (type): 
+       - "INCOME" لو فيها (بيع، بعت، قبضت).
+       - "EXPENSE" لو فيها (اشترينا، اشتريت، دفعت، سددت).
+    2. اسم الصنف فقط بدون تكرار أرقام أو كلمات زائدة (item_or_person).
+    3. الكمية (quantity) وافتراضها 1 إن لم تذكر.
+    4. المبلغ المالي الصحيح كأرقام صريحة (amount) كما كتبه المستخدم تماماً بدون أي تعديل.
     
     أجب بصيغة JSON فقط وبدون أي نصوص أخرى:
     {{
         "intent": "ADD_TRANSACTION",
         "type": "INCOME أو EXPENSE",
-        "item_or_person": "الوصف الدقيق مع الصنف (مثلاً: مشتريات مكرونة)",
+        "item_or_person": "اسم الصنف فقط",
         "quantity": 1,
         "amount": 0
     }}
     النص التجاري: "{text}"
     """
+    
     try:
         res = model.generate_content(prompt)
         raw_text = res.text.strip()
@@ -131,15 +133,29 @@ def process_command_ai(text: str):
             raw_text = raw_text.split("```json")[1].split("```")[0].strip()
         elif "```" in raw_text:
             raw_text = raw_text.split("```")[1].split("```")[0].strip()
-        return json.loads(raw_text)
+        
+        data = json.loads(raw_text)
+        
+        # حماية إضافية ذكية: لو النموذج رجع مبلغ 0 أو مش رقم، نطلعه بالRegex من النص مباشرة
+        if not data.get("amount") or data.get("amount") == 0:
+            numbers = re.findall(r'\d+', text)
+            if numbers:
+                data["amount"] = int(numbers[-1])
+                
+        return data
+        
     except Exception:
+        # استخراج المبلغ والنوع بالذكاء البشري المباشر (طوارئ)
         is_sale = any(w in text for w in ["بيع", "بعت", "باع", "قبضت"])
+        numbers = re.findall(r'\d+', text)
+        extracted_amount = int(numbers[-1]) if numbers else 0
+        
         return {
             "intent": "ADD_TRANSACTION",
             "type": "INCOME" if is_sale else "EXPENSE",
             "item_or_person": text,
             "quantity": 1,
-            "amount": 500
+            "amount": extracted_amount
         }
 
 # --- 4. واجهة المستخدم ---
@@ -172,11 +188,11 @@ with tab1:
     """, unsafe_allow_html=True)
 
     st.markdown("### 🗣️ سجل معاملتك التجارية بالصوت أو الكتابة:")
-    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: اشترينا ب 500 مكرونة", label_visibility="collapsed")
+    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: اشترينا سمك بوري ب 9000 جنية", label_visibility="collapsed")
     
     if st.button("🚀 تنفيذ وحفظ المعاملة"):
         if voice_input:
-            with st.spinner("✨ جاري تحليل المعاملة بالذكاء الاصطناعي..."):
+            with st.spinner("✨ جاري تحليل المعاملة بدقة تامة..."):
                 data = process_command_ai(voice_input)
                 intent = data.get("intent")
                 
@@ -199,7 +215,7 @@ with tab1:
                         confirm_msg = f"✅ تم بنجاح! تسجيل مبيعات لـ ({item}) بقيمة ({amt} ج.م)"
                         border_color = "#10b981"
                     else:
-                        confirm_msg = f"✅ تم بنجاح! تسجيل مشتريات/مصروف لـ ({item}) بقيمة ({amt} ج.م)"
+                        confirm_msg = f"✅ تم بنجاح! تسجيل مشتريات لـ ({item}) بقيمة ({amt} ج.م)"
                         border_color = "#f59e0b"
                     
                     st.markdown(f"""
