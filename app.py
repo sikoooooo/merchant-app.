@@ -190,56 +190,56 @@ with tab1:
     """, unsafe_allow_html=True)
 
     st.markdown("### 🗣️ سجل معاملتك التجارية بالصوت أو الكتابة:")
-print_placeholder = "مثال: اشترينا ملصقات دعائية ب 500 أو دفعنا كهرباء ب 2000..."
-voice_input = st.text_input("أدخل حركة التاجر:", placeholder=print_placeholder, label_visibility="collapsed")
-
-if st.button("🚀 تنفيذ وحفظ المعاملة"):
-    if voice_input:
-        with st.spinner("✨ جاري تحليل المعاملة بالذكاء الاصطناعي المحاسبي..."):
-            data = process_command_ai(voice_input)
-            intent = data.get("intent")
-            
-            if intent == "ADD_TRANSACTION":
-                amt = data.get("amount", 0)
-                tx_type = data.get("type", "EXPENSE")
-                tx_category = data.get("category", "مصاريف تشغيلية")
-                item = data.get("item_or_person", "عام")
-                qty = data.get("quantity", 1)
+    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: عملنا حملة دعاية على الفيس ب 500 جنية", label_visibility="collapsed")
+    
+    if st.button("🚀 تنفيذ وحفظ المعاملة"):
+        if voice_input:
+            with st.spinner("✨ جاري تحليل المعاملة بالذكاء الاصطناعي المحاسبي..."):
+                data = process_command_ai(voice_input)
+                intent = data.get("intent")
                 
-                supabase.table("transactions").insert({
-                    "type": tx_type,
-                    "item_or_person": item,
-                    "quantity": qty,
-                    "amount": amt,
-                    "raw_text": voice_input,
-                    "created_by_user_id": USER_ID,
-                    "category": tx_category
-                }).execute()
-                
-                if tx_type == "INCOME":
-                    confirm_msg = f"✅ تم بنجاح! تسجيل مبيعات لـ ({item}) بقيمة ({amt} ج.م)"
-                    border_color = "#10b981"
+                if intent == "ADD_TRANSACTION":
+                    amt = data.get("amount", 0)
+                    tx_type = data.get("type", "EXPENSE")
+                    tx_category = data.get("category", "مصاريف تشغيلية")
+                    item = data.get("item_or_person", "عام")
+                    qty = data.get("quantity", 1)
+                    
+                    # الحفظ المباشر مع العمود المستقل category
+                    supabase.table("transactions").insert({
+                        "type": tx_type,
+                        "item_or_person": item,
+                        "quantity": qty,
+                        "amount": amt,
+                        "raw_text": voice_input,
+                        "created_by_user_id": USER_ID,
+                        "category": tx_category
+                    }).execute()
+                    
+                    if tx_type == "INCOME":
+                        confirm_msg = f"✅ تم بنجاح! تسجيل مبيعات لـ ({item}) بقيمة ({amt} ج.م)"
+                        border_color = "#10b981"
+                    else:
+                        confirm_msg = f"✅ تم بنجاح! تسجيل ({tx_category}) لـ ({item}) بقيمة ({amt} ج.م)"
+                        border_color = "#f59e0b"
+                    
+                    st.markdown(f"""
+                        <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid {border_color}; padding: 16px; border-radius: 14px; margin-top: 15px;">
+                            <p style="margin: 0; color: #f3f4f6; font-size: 15px; font-weight: bold; text-align: center;">{confirm_msg}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                        <script>
+                            const speech = new SpeechSynthesisUtterance("{confirm_msg}");
+                            speech.lang = 'ar-EG';
+                            window.speechSynthesis.speak(speech);
+                        </script>
+                    """, unsafe_allow_html=True)
                 else:
-                    confirm_msg = f"✅ تم بنجاح! تسجيل ({tx_category}) لـ ({item}) بقيمة ({amt} ج.م)"
-                    border_color = "#f59e0b"
-                
-                st.markdown(f"""
-                    <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid {border_color}; padding: 16px; border-radius: 14px; margin-top: 15px;">
-                        <p style="margin: 0; color: #f3f4f6; font-size: 15px; font-weight: bold; text-align: center;">{confirm_msg}</p>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown(f"""
-                    <script>
-                        const speech = new SpeechSynthesisUtterance("{confirm_msg}");
-                        speech.lang = 'ar-EG';
-                        window.speechSynthesis.speak(speech);
-                    </script>
-                """, unsafe_allow_html=True)
-            else:
-                st.warning("⚠️ عذراً، لم أستطع فهم العملية بدقة. جرب صياغة أبسط.")
-    else:
-        st.error("الرجاء كتابة العملية أولاً.")
+                    st.warning("⚠️ عذراً، لم أستطع فهم العملية بدقة. جرب صياغة أبسط.")
+        else:
+            st.error("الرجاء كتابة العملية أولاً.")
 
 with tab2:
     st.markdown("### 📦 أرصدة وحركات المخزن الحالية")
