@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. التصميم الفاخر (Custom CSS UI/UX مع أنيميشن المحاسب الحي) ---
+# --- 2. التصميم الفاخر والتفاعلي الحقيقي ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
@@ -28,31 +28,25 @@ st.markdown("""
     
     .hero-header {
         background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-        padding: 35px;
+        padding: 30px;
         border-radius: 20px;
         color: white;
         text-align: center;
-        margin-bottom: 30px;
+        margin-bottom: 25px;
         box-shadow: 0 20px 25px -5px rgba(59, 130, 246, 0.2);
-    }
-    .hero-header h1 {
-        font-size: 32px;
-        font-weight: 900;
-        margin-bottom: 10px;
     }
     
     .metric-card {
         background: rgba(30, 41, 59, 0.7);
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 20px;
+        padding: 18px;
         border-radius: 16px;
         text-align: center;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     }
     .metric-card h3 {
         color: #60a5fa;
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 700;
         margin-top: 5px;
     }
@@ -61,10 +55,9 @@ st.markdown("""
         background: #1e293b;
         border: 1px solid #334155;
         border-right: 6px solid #3b82f6;
-        padding: 22px;
+        padding: 20px;
         border-radius: 16px;
-        margin-bottom: 20px;
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+        margin-bottom: 15px;
     }
     
     .stTextInput input {
@@ -82,18 +75,25 @@ st.markdown("""
         font-weight: 700 !important;
         border: none !important;
         padding: 12px 28px !important;
-        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
         width: 100%;
     }
 
-    /* أنيميشن حركة المحاسب الحي */
-    @keyframes avatarAction {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.03); }
-        100% { transform: scale(1); }
+    /* حركات تفاعلية ممتعة تشبه الألعاب */
+    @keyframes tomBounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
     }
-    .animated-avatar-box {
-        animation: avatarAction 1.5s infinite ease-in-out;
+    .tom-avatar-container {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 2px solid #3b82f6;
+        padding: 25px;
+        border-radius: 20px;
+        margin-top: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        animation: tomBounce 2s infinite ease-in-out;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -143,7 +143,7 @@ def process_command_ai(text: str):
 st.markdown("""
     <div class="hero-header">
         <h1>💎 النظام الذكي المتقدم لإدارة الأنشطة التجارية</h1>
-        <p>التحكم الكامل، المحاسبة الصوتية الفورية، وبوابة صفقات الجملة المربحة في منصة واحدة.</p>
+        <p>المحاسب الصوتي التفاعلي، إدارة المخزن، وبوابة صفقات الجملة المربحة.</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -157,15 +157,15 @@ with col3:
 
 st.write("---")
 
-tab1, tab2, tab3 = st.tabs(["💼 المحاسب الصوتي السريع", "📦 المخزن الذكي", "🤝 صفقات الجملة الحصرية"])
+tab1, tab2, tab3 = st.tabs(["💼 المحاسب التفاعلي (توم)", "📦 المخزن الذكي", "🤝 صفقات الجملة الحصرية"])
 
 with tab1:
-    st.markdown("### 🗣️ سجل معاملتك اليومية بالصوت أو الكتابة الذكية")
-    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="اكتب مثلاً: بعت كيلو لبن ب 400 جنيه أو سددت مورد 1500...", label_visibility="collapsed")
+    st.markdown("### 🗣️ كلم محاسبك أو اكتب حركتك التجارية:")
+    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: بعت كيلو لبن ب 30 جنية", label_visibility="collapsed")
     
     if st.button("🚀 تنفيذ وحفظ المعاملة فوراً"):
         if voice_input:
-            with st.spinner("✨ جاري معالجة المعاملة بالذكاء الاصطناعي..."):
+            with st.spinner("✨ جاري معالجة المعاملة..."):
                 data = process_command_ai(voice_input)
                 intent = data.get("intent")
                 
@@ -184,33 +184,35 @@ with tab1:
                         "created_by_user_id": USER_ID
                     }).execute()
                     
-                    # تفاعل المحاسب الحي (توم style): إيماءة الكتابة للبيع وإيماءة البحث في الدفتر للمخرجات
+                    # محاكاة "توم المتكلم": شخصية كرتونية حية تتفاعل بالصورة والرد الذكي حسب نوع العملية
                     if tx_type == "INCOME":
-                        response_msg = f"يا فندم، أنا فتحت الدفتر وكتبت البيعة لـ ({item}) بقيمة {amt} جنيه بدقة."
-                        avatar_status = "🐱‍💻 ✍️ يكتب في الدفتر (مدخلات ومبيعات)"
-                        card_border = "#10b981"
+                        response_msg = f"يا فندم، أنا فتحت الدفتر وكتبت البيعة لـ ({item}) بقيمة {amt} جنيه بدقة عالية!"
+                        avatar_img = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" # تعبير عن إدخال وكتابة نشطة
+                        status_title = "✍️ المحاسب يكتب البيعة في الدفتر فوراً..."
+                        border_color = "#10b981"
                     else:
-                        response_msg = f"يا فندم، أنا بدور في الدفاتر وبتأكد من المخرجات والسداد لـ ({item}) بقيمة {amt} جنيه."
-                        avatar_status = "🐱‍👓 📖 يبحث في الدفتر والمخرجات"
-                        card_border = "#f59e0b"
+                        response_msg = f"يا فندم، أنا ماسك الدفتر دلوقتي وبتأكد من المخرجات والفلوس لـ ({item}) بقيمة {amt} جنيه."
+                        avatar_img = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80" # تعبير عن مراجعة وفحص
+                        status_title = "📖 المحاسب يراجع الدفتر والمخرجات بدقة..."
+                        border_color = "#f59e0b"
                     
-                    # عرض المحاسب التفاعلي الحي المزود بالحركة والإيماءة
+                    # عرض المحاسب التفاعلي الحي الاحترافي
                     st.markdown(f"""
-                        <div class="animated-avatar-box" style="background: rgba(30, 41, 59, 0.95); border: 2px solid {card_border}; padding: 25px; border-radius: 20px; margin-top: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-                            <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
-                                <div style="font-size: 50px; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 16px;">{avatar_status.split()[0]}</div>
-                                <div>
-                                    <h4 style="color: {card_border}; margin: 0 0 5px 0; font-size: 19px;">المحاسب الحي التفاعلي:</h4>
-                                    <p style="margin: 0; color: #94a3b8; font-size: 14px;">الحالة: {avatar_status}</p>
-                                </div>
+                        <div class="tom-avatar-container" style="border-color: {border_color};">
+                            <div style="text-align: center;">
+                                <img src="{avatar_img}" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid {border_color}; object-fit: cover; box-shadow: 0 0 15px {border_color};">
+                                <p style="font-size: 11px; color: #94a3b8; margin-top: 5px; font-weight: bold;">محاسبك الذكي</p>
                             </div>
-                            <div style="background: #0f172a; padding: 16px; border-radius: 12px; border-right: 5px solid {card_border};">
-                                <p style="margin: 0; font-size: 17px; color: #f3f4f6; line-height: 1.6;">"{response_msg}"</p>
+                            <div style="flex-grow: 1;">
+                                <div style="color: {border_color}; font-weight: bold; font-size: 16px; margin-bottom: 5px;">{status_title}</div>
+                                <div style="background: #0f172a; padding: 12px; border-radius: 10px; border-right: 4px solid {border_color}; color: #f3f4f6; font-size: 15px;">
+                                    "{response_msg}"
+                                </div>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # تشغيل الصوت التفاعلي في المتصفح تلقائياً
+                    # نطق الرد الصوتي للمتصفح
                     st.markdown(f"""
                         <script>
                             const speech = new SpeechSynthesisUtterance("{response_msg}");
