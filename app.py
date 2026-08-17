@@ -1,12 +1,9 @@
-
 import streamlit as st
 import json
-import time
-from datetime import datetime
 import google.generativeai as genai
 from supabase import create_client, Client
 
-# --- 1. إعدادات الصفحة والتصميم العام ---
+# --- 1. إعدادات الصفحة ---
 st.set_page_config(
     page_title="المحاسب الصوتي الذكي - للتجار",
     page_icon="🎙️",
@@ -40,7 +37,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. إعداد الاتصال والـ APIs ---
+# --- 2. إعداد الاتصال بقاعدة البيانات و الـ AI ---
 SUPABASE_URL = "https://nqindgywshroejrcxtky.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjgxNTExMCwiZXhwIjoyMTAyMzkxMTEwfQ.g-jpUzajE_OxGNNjF2QCFZINWjRfGSPCSHR2rtOtUTE"
 
@@ -58,28 +55,23 @@ USER_ID = "855633fe-a3a8-400d-a9ae-9fe439e658bd"
 def process_command_ai(text: str):
     key = API_KEYS[0]
     genai.configure(api_key=key)
-    model = genai.GenerativeModel('gemini-3.6-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
-    أنت محاسب ذكي لتطبيق تجاري. حدد هدف التاجر بدقة من الجملة:
-    1. "ADD_INVENTORY" (إضافة بضاعة أو مخزون)
-    2. "ADD_TRANSACTION" (عملية بيع، شراء، خدمة، أو دين)
-    3. "QUERY_SALES" (استعلام عن المبيعات)
-    4. "QUERY_DEBT" (استعلام عن ديون)
+    أنت محاسب ذكي لتطبيق تجاري مصري. قم بتحليل الجملة واستخرج منها البيانات بدقة:
+    حدد الـ intent بدقة:
+    - "ADD_TRANSACTION" (للبيع، الشراء، تسجيل إيراد، أو قبض)
+    - "ADD_INVENTORY" (لإضافة بضاعة للمخزن)
     
-    أرجع JSON فقط بهذه الصيغة الدقيقة:
+    أرجع JSON نقي فقط بهذه الصيغة بدون أي markdown:
     {{
         "intent": "ADD_TRANSACTION",
-        "item_name": "اسم صنف المخزن",
-        "quantity": 1,
-        "cost_price": 0,
-        "category": "GOODS",
         "type": "INCOME",
-        "item_or_person": "الشخص أو الشيء",
-        "amount": 0
+        "item_or_person": "اسم السلعة أو الشخص مثل لبن",
+        "quantity": 1,
+        "amount": الرقم الصحيح كقيمة مالية مستخرجة من النص
     }}
     النص: "{text}"
-    أرجع JSON بدون ```json.
     """
     try:
         res = model.generate_content(prompt)
@@ -88,17 +80,18 @@ def process_command_ai(text: str):
     except Exception as e:
         return {"intent": "ERROR", "message": str(e)}
 
+# --- 3. تصميم واجهة Streamlit ---
 st.markdown('<div class="main-header"><h1>🎙️ المحاسب الصوتي الذكي (للتاجر)</h1><p>تحدث أو اكتب معاملتك، وسيقوم المحاسب بتسجيلها وإدارتها فوراً!</p></div>', unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["💼 لوحة المحاسب والصوت", "📦 إدارة المخزن", "🤝 بوابة عروض الجملة (Win-Win)"])
 
 with tab1:
     st.subheader("🗣️ تحدث مع محاسبك الذكي")
-    voice_input = st.text_input("اكتب أو قم بمحاكاة ما قاله التاجر صوتياً:", placeholder="مثال: بعت 3 كراتين زيت بـ 900 جنيه كاش / محمود عليه 500 جنيه آجل")
+    voice_input = st.text_input("اكتب أو قم بمحاكاة ما قاله التاجر صوتياً:", placeholder="مثال: بعت كيلو لبن ب 400 جنيه")
     
     if st.button("🚀 تنفيذ العملية", type="primary"):
         if voice_input:
-            with st.spinner("🤖 جاري تحليل المعالجة عبر الذكاء الاصطناعي..."):
+            with st.spinner("🤖 جاري تحليل المعالجة وتسجيلها في السيرفر..."):
                 data = process_command_ai(voice_input)
                 intent = data.get("intent")
                 
@@ -106,74 +99,57 @@ with tab1:
                     amt = data.get("amount", 0)
                     tx_type = data.get("type", "INCOME")
                     item = data.get("item_or_person", "عام")
+                    qty = data.get("quantity", 1)
                     
+                    # حفظ مباشر في قاعدة بيانات Supabase
                     supabase.table("transactions").insert({
                         "type": tx_type,
                         "item_or_person": item,
-                        "quantity": data.get("quantity", 1),
+                        "quantity": qty,
                         "amount": amt,
                         "raw_text": voice_input,
                         "created_by_user_id": USER_ID
                     }).execute()
                     
-                    st.success(f"✅ تم بنجاح! تم تسجيل العملية لـ ({item}) بقيمة ({amt} ج.م)")
-                    
-                elif intent == "ADD_INVENTORY":
-                    item_name = data.get("item_name", "صنف")
-                    qty = data.get("quantity", 1)
-                    cost = data.get("cost_price", 0)
-                    
-                    supabase.table("inventory").insert({
-                        "item_name": item_name,
-                        "quantity": qty,
-                        "cost_price": cost,
-                        "created_by_user_id": USER_ID
-                    }).execute()
-                    
-                    st.success(f"📦 تم إضافة الصنف '{item_name}' بكمية {qty} للمخزن بنجاح.")
-                    
-                elif intent == "QUERY_SALES":
-                    goods = supabase.table("transactions").select("*").eq("created_by_user_id", USER_ID).execute().data
-                    total = sum(t.get('amount', 0) for t in goods if t.get('type') == 'INCOME')
-                    st.info(f"📊 إجمالي المبيعات والمقبوضات حتى الآن: {total} جنيه.")
+                    st.success(f"✅ تم بنجاح! تم تسجيل عملية لـ ({item}) بقيمة ({amt} ج.م) وحفظها في قاعدة البيانات.")
                 else:
                     st.warning("⚠️ لم يتم فهم الطلب بدقة، حاول صياغته بشكل أبسط.")
         else:
             st.error("الرجاء إدخال نص الطلب أولاً.")
 
 with tab2:
-    st.subheader("📦 مخزن البضائع الحالي")
+    st.subheader("📦 مخزن البضائع الحالي (متزامن مع Supabase)")
     try:
         inv_data = supabase.table("inventory").select("*").eq("created_by_user_id", USER_ID).execute().data
         if inv_data:
             for item in inv_data:
                 st.markdown(f"""
                     <div class="card-box">
-                        <b>الصنف:</b> {item.get('item_name')} | <b>الكمية المتاحة:</b> {item.get('quantity')} قطعة | <b>سعر التكلفة:</b> {item.get('cost_price')} ج.م
+                        <b>الصنف:</b> {item.get('item_name')} | <b>الكمية:</b> {item.get('quantity')} | <b>السعر:</b> {item.get('cost_price')} ج.م
                     </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("لا توجد أصناف مسجلة في المخزن حالياً.")
+            st.info("لا توجد أصناف حالياً، سيتم مزامنتها تلقائياً.")
     except Exception as e:
-        st.error(f"خطأ في جلب بيانات المخزن: {e}")
+        st.error(f"خطأ في الاتصال بقاعدة البيانات: {e}")
 
 with tab3:
     st.subheader("🤝 بوابة عروض الجملة الحصرية (توفير وأرباح مضاعفة)")
-    st.markdown("بناءً على تحليلات استهلاك محلك، نقدم لك أفضل عروض كبار الموردين بأرخص سعر في السوق:")
+    st.markdown("عروض كبار الموردين المتاحة لمحلكم:")
     
     offers = [
-        {"supplier": "شركة الأغذية الكبرى", "item": "كرتونة زيت توفير (12 زجاجة)", "market_price": 650, "our_offer": 600, "saving": "وفر 50 جنيه في الكرتونة"},
-        {"supplier": "مستودع المنهل للمواد الغذائية", "item": "شوال سكر (50 كجم)", "market_price": 1800, "our_offer": 1700, "saving": "وفر 100 جنيه في الشوال"},
+        {"supplier": "شركة الأغذية الكبرى", "item": "كرتونة زيت توفير (12 زجاجة)", "market_price": 650, "our_offer": 600, "saving": "وفر 50 جنيه"},
+        {"supplier": "مستودع المنهل", "item": "شوال سكر (50 كجم)", "market_price": 1800, "our_offer": 1700, "saving": "وفر 100 جنيه"},
     ]
     
     for off in offers:
         st.markdown(f"""
             <div class="card-box">
                 <h4>🏷️ {off['item']}</h4>
-                <p><b>المورد المعتمد:</b> {off['supplier']}</p>
-                <p><span style="text-decoration: line-through; color: gray;">السعر في السوق: {off['market_price']} ج.م</span> | <span style="color: green; font-weight: bold;">سعر العرض الخاص: {off['our_offer']} ج.م</span></p>
+                <p><b>المورد:</b> {off['supplier']}</p>
+                <p><span style="text-decoration: line-through; color: gray;">السعر: {off['market_price']}</span> | <span style="color: green; font-weight: bold;">السعر الخاص: {off['our_offer']} ج.م</span></p>
                 <p style="color: #d9534f;">🔥 {off['saving']}</p>
             </div>
         """, unsafe_allow_html=True)
-        if st.button(f"طلب عرض: {off['item']}", key=off['item']):
-            st.success("🎉 تم إرسال طلبك للمورد بنجاح! سيقوم مندوب التوصيل بالتواصل معك وشحن الطلب لمحلكم قريباً.")
+        if st.button(f"طلب العرض: {off['item']}", key=off['item']):
+            st.success("🎉 تم إرسال طلبك للمورد بنجاح لتحقيق عمولتك وتوصيل البضاعة!")
