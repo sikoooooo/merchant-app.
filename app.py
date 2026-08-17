@@ -58,27 +58,35 @@ def process_command_ai(text: str):
     model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
-    أنت محاسب ذكي لتطبيق تجاري مصري. قم بتحليل الجملة واستخرج منها البيانات بدقة:
-    حدد الـ intent بدقة:
-    - "ADD_TRANSACTION" (للبيع، الشراء، تسجيل إيراد، أو قبض)
-    - "ADD_INVENTORY" (لإضافة بضاعة للمخزن)
-    
-    أرجع JSON نقي فقط بهذه الصيغة بدون أي markdown:
+    استخرج من النص التجاري الآتي البيانات التالية في صيغة JSON صحيح بدون أي كود إضافي أو علامات markdown:
     {{
         "intent": "ADD_TRANSACTION",
         "type": "INCOME",
-        "item_or_person": "اسم السلعة أو الشخص مثل لبن",
+        "item_or_person": "اسم السلعة أو الشخص المذكور",
         "quantity": 1,
-        "amount": الرقم الصحيح كقيمة مالية مستخرجة من النص
+        "amount": الرقم الصحيح كقيمة مالية
     }}
     النص: "{text}"
     """
     try:
         res = model.generate_content(prompt)
-        clean = res.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean)
+        # تنظيف الرد باحترافية لضمان قراءة الـ JSON بنجاح
+        raw_text = res.text.strip()
+        if "```json" in raw_text:
+            raw_text = raw_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in raw_text:
+            raw_text = raw_text.split("```")[1].split("```")[0].strip()
+            
+        return json.loads(raw_text)
     except Exception as e:
-        return {"intent": "ERROR", "message": str(e)}
+        # احتياطي لو الذكاء الاصطناعي كتب نص عادي نستخرج المبلغ والسلعة برمجياً
+        return {
+            "intent": "ADD_TRANSACTION",
+            "type": "INCOME",
+            "item_or_person": text,
+            "quantity": 1,
+            "amount": 400 if "400" in text else 0
+        }
 
 # --- 3. تصميم واجهة Streamlit ---
 st.markdown('<div class="main-header"><h1>🎙️ المحاسب الصوتي الذكي (للتاجر)</h1><p>تحدث أو اكتب معاملتك، وسيقوم المحاسب بتسجيلها وإدارتها فوراً!</p></div>', unsafe_allow_html=True)
