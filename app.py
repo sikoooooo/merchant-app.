@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. التصميم الاحترافي (UI/UX متطور) ---
+# --- 2. التصميم الفاخر (UI/UX الاحترافي بدون نصوص زوائد) ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
@@ -78,16 +78,18 @@ st.markdown("""
         width: 100%;
     }
 
-    /* صندوق شخصية الـ 3D الكرتونية المنفصلة */
-    .avatar-3d-box {
+    /* أنيميشن حركة احترافي للشخصية المحاسبية */
+    @keyframes accountantPulse {
+        0% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.4)); }
+        50% { transform: scale(1.02); filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.8)); }
+        100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.4)); }
+    }
+    .accountant-avatar-wrapper {
         display: flex;
+        justify-content: center;
         align-items: center;
-        background: rgba(30, 41, 59, 0.9);
-        border: 2px solid #3b82f6;
-        padding: 20px;
-        border-radius: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        animation: accountantPulse 3s infinite ease-in-out;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -151,21 +153,17 @@ with col3:
 
 st.write("---")
 
-tab1, tab2, tab3 = st.tabs(["💼 المحاسب التفاعلي 3D", "📦 المخزن الذكي", "🤝 صفقات الجملة الحصرية"])
+tab1, tab2, tab3 = st.tabs(["💼 المحاسب الذكي", "📦 المخزن الذكي", "🤝 صفقات الجملة الحصرية"])
 
 with tab1:
-    # فصل الشخصية الكرتونية 3D في صندوق مستقل بذاته لا يختفي
+    # شخصية محاسب كرتونية 3D احترافية بدون أي نصوص أو عناوين تقليدية مزعجة
     st.markdown("""
-        <div class="avatar-3d-box">
-            <div style="font-size: 55px; margin-left: 20px; background: rgba(59, 130, 246, 0.1); padding: 10px; border-radius: 50%; border: 2px solid #3b82f6;">🤖</div>
-            <div>
-                <h3 style="color: #60a5fa; margin: 0 0 5px 0; font-size: 18px;">المحاسب الذكي (3D Assistant)</h3>
-                <p style="margin: 0; color: #94a3b8; font-size: 14px;">جاهز لتسجيل مبيعاتك، مراجعة الدفاتر، وتحديث المخزن فوراً بالصوت أو النص.</p>
-            </div>
+        <div class="accountant-avatar-wrapper">
+            <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80" style="width: 110px; height: 110px; border-radius: 50%; border: 3px solid #3b82f6; object-fit: cover;">
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("### 🗣️ تفاعل مع المحاسب:")
+    st.markdown("### 🗣️ سجل معاملتك التجارية بالصوت أو الكتابة:")
     voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: بعت كيلو لبن ب 50 جنية", label_visibility="collapsed")
     
     if st.button("🚀 تنفيذ وحفظ المعاملة"):
@@ -189,22 +187,22 @@ with tab1:
                         "created_by_user_id": USER_ID
                     }).execute()
                     
-                    # رسالة تأكيد منفصلة ومؤقتة تختفي أو تظهر بشكل أنيق
+                    # رسالة تأكيد نظيفة ومختصرة تختفي بأناقة بعد الأداء
                     if tx_type == "INCOME":
-                        confirm_msg = f"✅ تم بنجاح! تم تسجيل بيع ({item}) بقيمة ({amt} ج.م) في الدفتر."
+                        confirm_msg = f"✅ تم بنجاح! تسجيل بيع ({item}) بقيمة ({amt} ج.م)"
                         border_color = "#10b981"
                     else:
-                        confirm_msg = f"✅ تم بنجاح! تم تسجيل المراجعة والمخرجات لـ ({item}) بقيمة ({amt} ج.م)."
+                        confirm_msg = f"✅ تم بنجاح! تسجيل المصروف أو السداد لـ ({item}) بقيمة ({amt} ج.م)"
                         border_color = "#f59e0b"
                     
-                    # كارت التأكيد المنفصل الذي يؤكد إتمام العملية
+                    # عرض كارت التأكيد المنفصل
                     st.markdown(f"""
-                        <div style="background: rgba(16, 185, 129, 0.1); border: 2px solid {border_color}; padding: 18px; border-radius: 14px; margin-top: 15px; animation: fadeIn 0.5s;">
-                            <p style="margin: 0; color: #f3f4f6; font-size: 16px; font-weight: bold; text-align: center;">{confirm_msg}</p>
+                        <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid {border_color}; padding: 16px; border-radius: 14px; margin-top: 15px;">
+                            <p style="margin: 0; color: #f3f4f6; font-size: 15px; font-weight: bold; text-align: center;">{confirm_msg}</p>
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # نطق الرد الصوتي للمتصفح
+                    # نطق الرد الصوتي
                     st.markdown(f"""
                         <script>
                             const speech = new SpeechSynthesisUtterance("{confirm_msg}");
@@ -225,9 +223,7 @@ with tab2:
             for item in inv_data:
                 st.markdown(f"""
                     <div class="glass-card">
-                        <b>🏷️ الصنف:</b> {item.get('item_name')} &nbsp;|&nbsp; 
-                        <b>📊 الكمية المتاحة:</b> {item.get('quantity')} &nbsp;|&nbsp; 
-                        <b>💰 سعر التكلفة:</b> {item.get('cost_price')} ج.م
+                        <b>🏷️ الصنف:</b> {item.get('item_name')} &nbsp;|&nbsp; <b>📊 الكمية:</b> {item.get('quantity')} &nbsp;|&nbsp; <b>💰 التكلفة:</b> {item.get('cost_price')} ج.م
                     </div>
                 """, unsafe_allow_html=True)
         else:
