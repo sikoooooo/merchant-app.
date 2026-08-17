@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. التصميم الفاخر (UI/UX الاحترافي بدون نصوص زوائد) ---
+# --- 2. التصميم الفاخر (UI/UX الاحترافي النظيف) ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
@@ -78,18 +78,17 @@ st.markdown("""
         width: 100%;
     }
 
-    /* أنيميشن حركة احترافي للشخصية المحاسبية */
-    @keyframes accountantPulse {
-        0% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.4)); }
-        50% { transform: scale(1.02); filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.8)); }
-        100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.4)); }
+    /* أنيميشن حركة أيقونة المحاسب والآلة الحسابية 3D */
+    @keyframes iconFloat {
+        0%, 100% { transform: translateY(0px) scale(1); }
+        50% { transform: translateY(-6px) scale(1.05); }
     }
-    .accountant-avatar-wrapper {
+    .accountant-3d-badge {
         display: flex;
         justify-content: center;
         align-items: center;
         margin-bottom: 20px;
-        animation: accountantPulse 3s infinite ease-in-out;
+        animation: iconFloat 3s infinite ease-in-out;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -156,10 +155,12 @@ st.write("---")
 tab1, tab2, tab3 = st.tabs(["💼 المحاسب الذكي", "📦 المخزن الذكي", "🤝 صفقات الجملة الحصرية"])
 
 with tab1:
-    # شخصية محاسب كرتونية 3D احترافية بدون أي نصوص أو عناوين تقليدية مزعجة
+    # أيقونة 3D محاسبية احترافية صريحة (حسابات وأرباح مالية) تعوض تماماً الصور العشوائية
     st.markdown("""
-        <div class="accountant-avatar-wrapper">
-            <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80" style="width: 110px; height: 110px; border-radius: 50%; border: 3px solid #3b82f6; object-fit: cover;">
+        <div class="accountant-3d-badge">
+            <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); width: 90px; height: 90px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(37, 99, 235, 0.5); border: 2px solid rgba(255,255,255,0.2);">
+                <span style="font-size: 40px;">📊</span>
+            </div>
         </div>
     """, unsafe_allow_html=True)
 
