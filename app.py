@@ -106,17 +106,19 @@ def process_command_ai(text: str):
     model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
-    أنت محاسب ذكي ومدقق تجاري. افهم هذا النص التجاري بدقة تامة:
-    - إذا كان النص يحتوي على (بيع، بعت، قبضت، إيراد، مبيعات)، حدد نوع المعاملة: "INCOME" (إيراد/مبيعات).
-    - إذا كان النص يحتوي على (اشتريت، دفعت، سددت، مصروف)، حدد نوع المعاملة: "EXPENSE" (مصروف/سداد).
-    - استخرج اسم السلعة أو الغرض (item_or_person).
-    - استخرج المبلغ المالي بدقة كأرقام صحيحة (amount).
+    أنت محاسب ذكي ومدقق تجاري محترف يفهم العامية المصرية تماماً. افحص هذا النص التجاري بدقة:
+    1. حدد نوع المعاملة (type):
+       - إذا كان النص يدل على بيع أو إيراد (مثل: بعت، بيع، قبضت، مبيعات) ➔ اختر "INCOME".
+       - إذا كان النص يدل على شراء بضاعة، مصاريف، أو سداد أجور (مثل: اشترينا، اشتريت، دفعت، سددت، صرفت) ➔ اختر "EXPENSE".
+    2. صنف الغرض بدقة (item_or_person): هل هو (مشتريات بضاعة، مصروفات تشغيل، أجور عمال، إلخ) مع اسم الصنف.
+    3. استخرج الكمية (quantity) والكمية الافتراضية 1 إن لم تذكر.
+    4. استخرج المبلغ المالي بدقة كأرقام صحيحة (amount).
     
-    أجب بصيغة JSON فقط بهذا الشكل وبدون أي نص آخر:
+    أجب بصيغة JSON فقط وبدون أي نصوص أخرى:
     {{
         "intent": "ADD_TRANSACTION",
-        "type": "INCOME",
-        "item_or_person": "اسم السلعة أو الغرض",
+        "type": "INCOME أو EXPENSE",
+        "item_or_person": "الوصف الدقيق مع الصنف (مثلاً: مشتريات مكرونة)",
         "quantity": 1,
         "amount": 0
     }}
@@ -131,8 +133,7 @@ def process_command_ai(text: str):
             raw_text = raw_text.split("```")[1].split("```")[0].strip()
         return json.loads(raw_text)
     except Exception:
-        # تحديد ذكي افتراضي بناءً على كلمة "بعت"
-        is_sale = "بيع" in text or "بعت" in text or "باع" in text
+        is_sale = any(w in text for w in ["بيع", "بعت", "باع", "قبضت"])
         return {
             "intent": "ADD_TRANSACTION",
             "type": "INCOME" if is_sale else "EXPENSE",
@@ -171,7 +172,7 @@ with tab1:
     """, unsafe_allow_html=True)
 
     st.markdown("### 🗣️ سجل معاملتك التجارية بالصوت أو الكتابة:")
-    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: بعت دفاتر ب 500 جنية", label_visibility="collapsed")
+    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: اشترينا ب 500 مكرونة", label_visibility="collapsed")
     
     if st.button("🚀 تنفيذ وحفظ المعاملة"):
         if voice_input:
@@ -181,7 +182,7 @@ with tab1:
                 
                 if intent == "ADD_TRANSACTION":
                     amt = data.get("amount", 0)
-                    tx_type = data.get("type", "INCOME")
+                    tx_type = data.get("type", "EXPENSE")
                     item = data.get("item_or_person", "عام")
                     qty = data.get("quantity", 1)
                     
@@ -195,10 +196,10 @@ with tab1:
                     }).execute()
                     
                     if tx_type == "INCOME":
-                        confirm_msg = f"✅ تم بنجاح! تسجيل مبيعات (إيراد) لـ ({item}) بقيمة ({amt} ج.م)"
+                        confirm_msg = f"✅ تم بنجاح! تسجيل مبيعات لـ ({item}) بقيمة ({amt} ج.م)"
                         border_color = "#10b981"
                     else:
-                        confirm_msg = f"✅ تم بنجاح! تسجيل مصروف لـ ({item}) بقيمة ({amt} ج.م)"
+                        confirm_msg = f"✅ تم بنجاح! تسجيل مشتريات/مصروف لـ ({item}) بقيمة ({amt} ج.م)"
                         border_color = "#f59e0b"
                     
                     st.markdown(f"""
