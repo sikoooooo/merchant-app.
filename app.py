@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. التصميم الفاخر (Custom CSS UI/UX) ---
+# --- 2. التصميم الفاخر (Custom CSS UI/UX مع أنيميشن المحاسب الحي) ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
@@ -85,6 +85,16 @@ st.markdown("""
         box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
         width: 100%;
     }
+
+    /* أنيميشن حركة المحاسب الحي */
+    @keyframes avatarAction {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+        100% { transform: scale(1); }
+    }
+    .animated-avatar-box {
+        animation: avatarAction 1.5s infinite ease-in-out;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -151,7 +161,7 @@ tab1, tab2, tab3 = st.tabs(["💼 المحاسب الصوتي السريع", "�
 
 with tab1:
     st.markdown("### 🗣️ سجل معاملتك اليومية بالصوت أو الكتابة الذكية")
-    voice_input = st.text_input("", placeholder="اكتب مثلاً: بعت كيلو لبن ب 400 جنيه أو سددت مورد 1500...")
+    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="اكتب مثلاً: بعت كيلو لبن ب 400 جنيه أو سددت مورد 1500...", label_visibility="collapsed")
     
     if st.button("🚀 تنفيذ وحفظ المعاملة فوراً"):
         if voice_input:
@@ -174,28 +184,33 @@ with tab1:
                         "created_by_user_id": USER_ID
                     }).execute()
                     
-                    # تخصيص رد المحاسب حسب نوع العملية (إيراد = مدخلات، مصروف = مراجعة دفاتر ومخرجات)
+                    # تفاعل المحاسب الحي (توم style): إيماءة الكتابة للبيع وإيماءة البحث في الدفتر للمخرجات
                     if tx_type == "INCOME":
-                        response_msg = f"يا فندم، أنا كتبت البيعة في الدفتر وسجلت إيراد لـ ({item}) بقيمة {amt} جنيه فورا."
-                        avatar_icon = "📥📈"
+                        response_msg = f"يا فندم، أنا فتحت الدفتر وكتبت البيعة لـ ({item}) بقيمة {amt} جنيه بدقة."
+                        avatar_status = "🐱‍💻 ✍️ يكتب في الدفتر (مدخلات ومبيعات)"
                         card_border = "#10b981"
                     else:
-                        response_msg = f"يا فندم، أنا راجعت الدفاتر وسجلت مصروف أو سداد لـ ({item}) بقيمة {amt} جنيه."
-                        avatar_icon = "📤📋"
+                        response_msg = f"يا فندم، أنا بدور في الدفاتر وبتأكد من المخرجات والسداد لـ ({item}) بقيمة {amt} جنيه."
+                        avatar_status = "🐱‍👓 📖 يبحث في الدفتر والمخرجات"
                         card_border = "#f59e0b"
                     
-                    # عرض بطاقة المحاسب التفاعلي الناطق
+                    # عرض المحاسب التفاعلي الحي المزود بالحركة والإيماءة
                     st.markdown(f"""
-                        <div style="background: rgba(30, 41, 59, 0.9); border: 2px solid {card_border}; padding: 22px; border-radius: 16px; margin-top: 20px; display: flex; align-items: center; gap: 20px;">
-                            <div style="font-size: 45px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px;">👨‍💼 {avatar_icon}</div>
-                            <div>
-                                <h4 style="color: {card_border}; margin: 0 0 8px 0; font-size: 18px;">رد المحاسب التفاعلي:</h4>
-                                <p style="margin: 0; font-size: 16px; color: #f3f4f6; line-height: 1.6;">{response_msg}</p>
+                        <div class="animated-avatar-box" style="background: rgba(30, 41, 59, 0.95); border: 2px solid {card_border}; padding: 25px; border-radius: 20px; margin-top: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                            <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+                                <div style="font-size: 50px; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 16px;">{avatar_status.split()[0]}</div>
+                                <div>
+                                    <h4 style="color: {card_border}; margin: 0 0 5px 0; font-size: 19px;">المحاسب الحي التفاعلي:</h4>
+                                    <p style="margin: 0; color: #94a3b8; font-size: 14px;">الحالة: {avatar_status}</p>
+                                </div>
+                            </div>
+                            <div style="background: #0f172a; padding: 16px; border-radius: 12px; border-right: 5px solid {card_border};">
+                                <p style="margin: 0; font-size: 17px; color: #f3f4f6; line-height: 1.6;">"{response_msg}"</p>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # كود تشغيل الصوت التفاعلي في المتصفح تلقائياً
+                    # تشغيل الصوت التفاعلي في المتصفح تلقائياً
                     st.markdown(f"""
                         <script>
                             const speech = new SpeechSynthesisUtterance("{response_msg}");
