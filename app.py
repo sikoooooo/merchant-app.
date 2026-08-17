@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. التصميم الفاخر والتفاعلي الحقيقي ---
+# --- 2. التصميم الاحترافي (UI/UX متطور) ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
@@ -78,22 +78,16 @@ st.markdown("""
         width: 100%;
     }
 
-    /* حركات تفاعلية ممتعة تشبه الألعاب */
-    @keyframes tomBounce {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-8px); }
-    }
-    .tom-avatar-container {
+    /* صندوق شخصية الـ 3D الكرتونية المنفصلة */
+    .avatar-3d-box {
         display: flex;
         align-items: center;
-        gap: 20px;
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        background: rgba(30, 41, 59, 0.9);
         border: 2px solid #3b82f6;
-        padding: 25px;
+        padding: 20px;
         border-radius: 20px;
-        margin-top: 20px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        animation: tomBounce 2s infinite ease-in-out;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.4);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -136,7 +130,7 @@ def process_command_ai(text: str):
             "type": "INCOME" if "بيع" in text or "باع" in text else "EXPENSE",
             "item_or_person": text,
             "quantity": 1,
-            "amount": 400 if "400" in text else 100
+            "amount": 50 if "50" in text else 400
         }
 
 # --- 4. واجهة المستخدم ---
@@ -157,15 +151,26 @@ with col3:
 
 st.write("---")
 
-tab1, tab2, tab3 = st.tabs(["💼 المحاسب التفاعلي (توم)", "📦 المخزن الذكي", "🤝 صفقات الجملة الحصرية"])
+tab1, tab2, tab3 = st.tabs(["💼 المحاسب التفاعلي 3D", "📦 المخزن الذكي", "🤝 صفقات الجملة الحصرية"])
 
 with tab1:
-    st.markdown("### 🗣️ كلم محاسبك أو اكتب حركتك التجارية:")
-    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: بعت كيلو لبن ب 30 جنية", label_visibility="collapsed")
+    # فصل الشخصية الكرتونية 3D في صندوق مستقل بذاته لا يختفي
+    st.markdown("""
+        <div class="avatar-3d-box">
+            <div style="font-size: 55px; margin-left: 20px; background: rgba(59, 130, 246, 0.1); padding: 10px; border-radius: 50%; border: 2px solid #3b82f6;">🤖</div>
+            <div>
+                <h3 style="color: #60a5fa; margin: 0 0 5px 0; font-size: 18px;">المحاسب الذكي (3D Assistant)</h3>
+                <p style="margin: 0; color: #94a3b8; font-size: 14px;">جاهز لتسجيل مبيعاتك، مراجعة الدفاتر، وتحديث المخزن فوراً بالصوت أو النص.</p>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("### 🗣️ تفاعل مع المحاسب:")
+    voice_input = st.text_input("أدخل حركة التاجر:", placeholder="مثال: بعت كيلو لبن ب 50 جنية", label_visibility="collapsed")
     
-    if st.button("🚀 تنفيذ وحفظ المعاملة فوراً"):
+    if st.button("🚀 تنفيذ وحفظ المعاملة"):
         if voice_input:
-            with st.spinner("✨ جاري معالجة المعاملة..."):
+            with st.spinner("✨ جاري معالجة المعاملة وحفظها..."):
                 data = process_command_ai(voice_input)
                 intent = data.get("intent")
                 
@@ -184,44 +189,31 @@ with tab1:
                         "created_by_user_id": USER_ID
                     }).execute()
                     
-                    # محاكاة "توم المتكلم": شخصية كرتونية حية تتفاعل بالصورة والرد الذكي حسب نوع العملية
+                    # رسالة تأكيد منفصلة ومؤقتة تختفي أو تظهر بشكل أنيق
                     if tx_type == "INCOME":
-                        response_msg = f"يا فندم، أنا فتحت الدفتر وكتبت البيعة لـ ({item}) بقيمة {amt} جنيه بدقة عالية!"
-                        avatar_img = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" # تعبير عن إدخال وكتابة نشطة
-                        status_title = "✍️ المحاسب يكتب البيعة في الدفتر فوراً..."
+                        confirm_msg = f"✅ تم بنجاح! تم تسجيل بيع ({item}) بقيمة ({amt} ج.م) في الدفتر."
                         border_color = "#10b981"
                     else:
-                        response_msg = f"يا فندم، أنا ماسك الدفتر دلوقتي وبتأكد من المخرجات والفلوس لـ ({item}) بقيمة {amt} جنيه."
-                        avatar_img = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80" # تعبير عن مراجعة وفحص
-                        status_title = "📖 المحاسب يراجع الدفتر والمخرجات بدقة..."
+                        confirm_msg = f"✅ تم بنجاح! تم تسجيل المراجعة والمخرجات لـ ({item}) بقيمة ({amt} ج.م)."
                         border_color = "#f59e0b"
                     
-                    # عرض المحاسب التفاعلي الحي الاحترافي
+                    # كارت التأكيد المنفصل الذي يؤكد إتمام العملية
                     st.markdown(f"""
-                        <div class="tom-avatar-container" style="border-color: {border_color};">
-                            <div style="text-align: center;">
-                                <img src="{avatar_img}" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid {border_color}; object-fit: cover; box-shadow: 0 0 15px {border_color};">
-                                <p style="font-size: 11px; color: #94a3b8; margin-top: 5px; font-weight: bold;">محاسبك الذكي</p>
-                            </div>
-                            <div style="flex-grow: 1;">
-                                <div style="color: {border_color}; font-weight: bold; font-size: 16px; margin-bottom: 5px;">{status_title}</div>
-                                <div style="background: #0f172a; padding: 12px; border-radius: 10px; border-right: 4px solid {border_color}; color: #f3f4f6; font-size: 15px;">
-                                    "{response_msg}"
-                                </div>
-                            </div>
+                        <div style="background: rgba(16, 185, 129, 0.1); border: 2px solid {border_color}; padding: 18px; border-radius: 14px; margin-top: 15px; animation: fadeIn 0.5s;">
+                            <p style="margin: 0; color: #f3f4f6; font-size: 16px; font-weight: bold; text-align: center;">{confirm_msg}</p>
                         </div>
                     """, unsafe_allow_html=True)
                     
                     # نطق الرد الصوتي للمتصفح
                     st.markdown(f"""
                         <script>
-                            const speech = new SpeechSynthesisUtterance("{response_msg}");
+                            const speech = new SpeechSynthesisUtterance("{confirm_msg}");
                             speech.lang = 'ar-EG';
                             window.speechSynthesis.speak(speech);
                         </script>
                     """, unsafe_allow_html=True)
                 else:
-                    st.warning("⚠️ محاسبك بيقولك: مش فاهم القصد كويس، ممكن توضح المبلغ أو العملية أكتر؟")
+                    st.warning("⚠️ عذراً، لم أستطع فهم العملية بدقة. جرب صياغة أبسط.")
         else:
             st.error("الرجاء كتابة العملية أولاً.")
 
