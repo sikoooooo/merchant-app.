@@ -27,12 +27,12 @@ html, body, [class*="css"] {
 }
 .hero-header {
     background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-    padding: 25px;
-    border-radius: 20px;
+    padding: 20px;
+    border-radius: 16px;
     color: white;
     text-align: center;
     margin-bottom: 20px;
-    box-shadow: 0 20px 25px -5px rgba(30, 58, 138, 0.3);
+    box-shadow: 0 10px 20px rgba(30, 58, 138, 0.3);
     border: 1px solid #3b82f6;
 }
 .stTextInput input, .stSelectbox select, .stMultiSelect div {
@@ -233,18 +233,22 @@ if not st.session_state.logged_in:
                     st.rerun()
 
 else:
-    st.markdown(f"""
-    <div class="hero-header" style="padding: 15px; display: flex; justify-content: space-between; align-items: center;">
-        <div>
-            <h3 style="margin:0; color:white;">💎 أهلاً بك، {st.session_state.user_name}</h3>
-            <p style="margin:0; font-size:14px; color:#93c5fd;">الصلاحية: ({'الآدمن / الإدارة العليا' if st.session_state.role == 'admin' else 'موظف مبيعات'})</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    # --- القائمة الجانبية (Sidebar المحدثة للتحكم الكامل واختيار الفرع) ---
     with st.sidebar:
-        st.subheader("⚙️ إعدادات الحساب")
-        st.write(f"المستخدم: **{st.session_state.user_name}**")
+        st.markdown(f"### 💎 أهلاً، {st.session_state.user_name}")
+        st.write(f"الدور: **{'الآدمن / الإدارة' if st.session_state.role == 'admin' else 'موظف مبيعات'}**")
+        st.markdown("---")
+        
+        # نقل اختيار فرع الآدمن للقائمة الجانبية لمنع زحمة الشاشة الرئيسية
+        if st.session_state.role == "admin":
+            st.markdown("### 📍 التحكم في الفروع")
+            selected_admin_branch = st.selectbox(
+                "اختر الفرع للرصد والاستعلام:",
+                ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"],
+                key="sidebar_admin_branch"
+            )
+            st.markdown("---")
+            
         if st.button("🚪 تسجيل الخروج"):
             st.session_state.logged_in = False
             st.session_state.role = None
@@ -252,11 +256,16 @@ else:
 
     # --- لوحة الآدمن الكاملة ---
     if st.session_state.role == "admin":
-        st.subheader("👑 لوحة تحكم الإدارة العليا (صاحب المؤسسة)")
+        st.markdown("""
+        <div class="hero-header">
+            <h2>👑 لوحة تحكم الإدارة العليا (صاحب المؤسسة)</h2>
+            <p>متابعة وإدارة الموظفين والصلاحيات وتوجيه العمليات للفرع المحدد من القائمة الجانبية</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # قائمة ديناميكية تفاعلية لإدارة الموظفين مع Multi-select للصلاحيات
-        with st.expander("🛠️ إدارة وصلاحيات موظفي الفروع (قائمة متعددة الاختيارات)", expanded=True):
-            st.write("تحكم في بيانات الموظفين وفروعهم وصلاحياتهم بدقة من خلال القوائم المنسدلة:")
+        # قسم منظم لإدارة الموظفين
+        with st.expander("🛠️ إدارة وصلاحيات موظفي الفروع (قائمة متعددة الاختيارات)", expanded=False):
+            st.write("يمكنك تحديث أسماء الموظفين، فروعهم، وصلاحياتهم بمرونة:")
             
             for i, emp in enumerate(st.session_state.employees_list):
                 with st.container():
@@ -266,7 +275,6 @@ else:
                     with cols[1]:
                         new_branch = st.selectbox(f"فرع {i}", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], index=0 if emp["branch"]=="الفرع الرئيسي (القاهرة)" else 1, key=f"br_{i}")
                     with cols[2]:
-                        # الصلاحيات بصيغة Multi-select
                         default_perms = [p for p in emp["permissions"] if p in ALL_AVAILABLE_PERMISSIONS]
                         new_perms = st.multiselect(f"صلاحيات {i}", options=ALL_AVAILABLE_PERMISSIONS, default=default_perms, key=f"perms_{i}")
                     with cols[3]:
@@ -275,15 +283,17 @@ else:
                             st.session_state.employees_list[i]["name"] = new_name
                             st.session_state.employees_list[i]["branch"] = new_branch
                             st.session_state.employees_list[i]["permissions"] = new_perms
-                            st.success(f"تم تحديث بيانات وصلاحيات {new_name} بنجاح!")
+                            st.success(f"تم التحديث!")
                             st.rerun()
                 st.markdown("---")
 
-            # إضافة موظف جديد بصلاحيات متعددة
             st.markdown("#### ➕ إضافة موظف جديد")
-            new_emp_name = st.text_input("اسم الموظف الجديد:", placeholder="مثال: أحمد محمد")
-            new_emp_branch = st.selectbox("تعيين للفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="new_branch_add")
-            new_emp_perms = st.multiselect("اختر الصلاحيات الممنوحة:", options=ALL_AVAILABLE_PERMISSIONS, default=["تسجيل مبيعات", "استعلام عن الأسعار"], key="new_perms_add")
+            col_add1, col_add2 = st.columns(2)
+            with col_add1:
+                new_emp_name = st.text_input("اسم الموظف الجديد:", placeholder="مثال: أحمد محمد")
+                new_emp_branch = st.selectbox("تعيين للفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="new_branch_add")
+            with col_add2:
+                new_emp_perms = st.multiselect("اختر الصلاحيات الممنوحة:", options=ALL_AVAILABLE_PERMISSIONS, default=["تسجيل مبيعات", "استعلام عن الأسعار"], key="new_perms_add")
             
             if st.button("✨ إضافة واعتماد الموظف"):
                 if new_emp_name:
@@ -295,13 +305,14 @@ else:
                         "branch": new_emp_branch,
                         "permissions": new_emp_perms
                     })
-                    st.success(f"تمت إضافة الموظف {new_emp_name} وصلاحياته بنجاح!")
+                    st.success(f"تمت إضافة الموظف {new_emp_name} بنجاح!")
                     st.rerun()
                 else:
                     st.error("يرجى كتابة اسم الموظف.")
 
         st.markdown("---")
-        admin_branch_select = st.selectbox("📍 حدد الفرع للاستعلام أو الرصد المباشر كآدمن:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="ad_br")
+        st.info(f"📍 الفرع النشط حالياً لتنفيذ العمليات: **{selected_admin_branch}** (يمكنك تغييره من القائمة الجانبية)")
+        
         admin_input = st.text_input("✍️ أدخل معاملة إدارية شاملة أو استعلام عام:", placeholder="مثال: كرتونة البيض بكام؟ أو شراء أصل بـ 50000", key="admin_inp")
 
         if st.button("🚀 تنفيذ الطلب (إدارة)", key="adm_exec"):
@@ -310,11 +321,11 @@ else:
                     data = process_command_ai(admin_input)
                     
                     if data.get("type") == "QUERY":
-                        found_item = search_item_price(admin_input, admin_branch_select)
+                        found_item = search_item_price(admin_input, selected_admin_branch)
                         if found_item:
-                            st.success(f"🔍 آخر حركة مسجلة في ({admin_branch_select}) للصنف: ({found_item.get('item_or_person')}) | الإجمالي ({found_item.get('amount')} ج.م)")
+                            st.success(f"🔍 آخر حركة مسجلة في ({selected_admin_branch}) للصنف: ({found_item.get('item_or_person')}) | الإجمالي ({found_item.get('amount')} ج.م)")
                         else:
-                            st.warning(f"⚠️ عذراً، لم أجد تسجيلاً لهذا الصنف في {admin_branch_select}.")
+                            st.warning(f"⚠️ عذراً، لم أجد تسجيلاً لهذا الصنف في {selected_admin_branch}.")
                     else:
                         amt = data.get("amount", 0)
                         tx_type = data.get("type", "EXPENSE")
@@ -333,11 +344,11 @@ else:
                                 "raw_text": admin_input,
                                 "created_by_user_id": USER_ID,
                                 "category": tx_category,
-                                "branch": admin_branch_select,
+                                "branch": selected_admin_branch,
                                 "employee": "الآدمن"
                             }).execute()
                             post_journal_entry(tx_type, tx_category, amt, admin_input)
-                            st.success(f"✅ تم تسجيل المعاملة الإدارية بنجاح في {admin_branch_select} بقيمة {amt} ج.م")
+                            st.success(f"✅ تم تسجيل المعاملة الإدارية بنجاح في {selected_admin_branch} بقيمة {amt} ج.م")
 
     # --- شاشة الموظف ---
     else:
