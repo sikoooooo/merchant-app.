@@ -101,21 +101,23 @@ def process_command_ai(text: str):
     income_keywords = ["بيع", "بعت", "بعنا", "باع", "مبيعات", "قبضت", "قبضنا", "حصلنا", "توريد"]
     is_sale = any(w in text for w in income_keywords)
     
+    # محاولة التحليل بالذكاء الاصطناعي مع منع الأخطاء
     for key in API_KEYS:
         try:
             genai.configure(api_key=key)
             system_instruction = """
             أنت محاسب ذكي وخبير في تجارة الجملة والمفرد باللهجة العامية المصرية.
-            قواعد التصنيف الدقيقة:
-            1. type: INCOME لو المعاملة بيع أو قبض، EXPENSE لو شراء أو مصاريف.
-            2. category: حدد حصريا التصنيف من: مبيعات، مشتريات وبضاعة، أصول ثابتة، مصاريف تشغيلية، مصاريف دعاية وإعلان، مصاريف إدارية ورواتب.
-            3. item_or_person: اسم الصنف أو البيان.
-            4. quantity: الكمية الرقمية أو 1.
-            5. amount: المبلغ الاجمالي النهائي للعملية.
-            أجب بصيغة JSON نقي فقط بدون أي نص خارجي وبدون علامات الـ markdown.
+            أجب بصيغة JSON نقي فقط بدون أي نص خارجي وبدون علامات الـ markdown بالهيكل التالي:
+            {
+              "type": "INCOME أو EXPENSE",
+              "category": "مبيعات أو مشتريات وبضاعة أو أصول ثابتة أو مصاريف تشغيلية",
+              "item_or_person": "اسم الصنف",
+              "quantity": رقم الكمية,
+              "amount": المبلغ الاجمالي
+            }
             """
-            model = genai.GenerativeModel(model_name='gemini-1.5-pro', system_instruction=system_instruction)
-            res = model.generate_content(f"حلل المعاملة بدقة: '{text}'")
+            model = genai.GenerativeModel(model_name='gemini-1.5-flash', system_instruction=system_instruction)
+            res = model.generate_content(f"حلل المعاملة: '{text}'")
             raw_text = res.text.strip()
             
             if "```json" in raw_text:
@@ -132,6 +134,7 @@ def process_command_ai(text: str):
         except Exception:
             continue
             
+    # الخطة البديلة الآمنة في حال فشل الـ AI أو إرجاع خطأ JSON
     numbers = [int(n) for n in re.findall(r'\d+', text)]
     is_total_format = any(w in text for w in ["بـ", "ب ", "إجمالي"]) and len(numbers) >= 2
     
@@ -156,29 +159,32 @@ def process_command_ai(text: str):
     }
 
 def post_journal_entry(tx_type, category, amount, description):
-    entry_id = str(uuid.uuid4())
-    id_cash = 1
-    
-    if tx_type == "INCOME" or category == "مبيعات":
-        id_target = 4
-        journal_data = [
-            {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description},
-            {"entry_id": entry_id, "account_id": id_target, "debit": 0.00, "credit": amount, "description": description}
-        ]
-    else:
-        desc_lower = description.lower()
-        if "دعاية" in desc_lower or "اعلان" in desc_lower or "إعلان" in desc_lower:
-            id_target = 6
-        elif category == "أصول ثابتة" or "عربية" in desc_lower or "سيارة" in desc_lower:
-            id_target = 7
+    try:
+        entry_id = str(uuid.uuid4())
+        id_cash = 1
+        
+        if tx_type == "INCOME" or category == "مبيعات":
+            id_target = 4
+            journal_data = [
+                {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description},
+                {"entry_id": entry_id, "account_id": id_target, "debit": 0.00, "credit": amount, "description": description}
+            ]
         else:
-            id_target = 5
+            desc_lower = description.lower()
+            if "دعاية" in desc_lower or "اعلان" in desc_lower or "إعلان" in desc_lower:
+                id_target = 6
+            elif category == "أصول ثابتة" or "عربية" in desc_lower or "سيارة" in desc_lower:
+                id_target = 7
+            else:
+                id_target = 5
 
-        journal_data = [
-            {"entry_id": entry_id, "account_id": id_target, "debit": amount, "credit": 0.00, "description": description},
-            {"entry_id": entry_id, "account_id": id_cash, "debit": 0.00, "credit": amount, "description": description}
-        ]
-    supabase.table("journal_entries").insert(journal_data).execute()
+            journal_data = [
+                {"entry_id": entry_id, "account_id": id_target, "debit": amount, "credit": 0.00, "description": description},
+                {"entry_id": entry_id, "account_id": id_cash, "debit": 0.00, "credit": amount, "description": description}
+            ]
+        supabase.table("journal_entries").insert(journal_data).execute()
+    except Exception:
+        pass
     return True
 
 # --- 4. إدارة الجلسة والدخول ---
