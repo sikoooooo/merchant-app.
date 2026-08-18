@@ -106,14 +106,12 @@ def process_command_ai(text: str):
     key = API_KEYS[0]
     genai.configure(api_key=key)
     
+    # فحص ذكي محلي أولاً قبل إزعاج الـ AI
+    is_sale = any(w in text for w in ["بيع", "بعت", "باع", "قبضت", "مبيعات", "بضاع"])
+    
     system_instruction = """
     أنت نظام محاسبي ذكي وخبير مالي مدرب على المعايير المحاسبية.
-    مهمتك تحليل أي نص تجاري يدخله المستخدم واستخراج البيانات وتصنيفها كالتالي بحرص شديد:
-    1. إذا كانت جملة تدل على دخل أو بيع أو قبض أموال (مثل: بيع، بعت، قبضت، باع، مبيعات): يجب أن تكون category حصرياً "مبيعات" و type تساوي "INCOME".
-    2. إذا كانت مصروفات عامة أو شراء خامات أو إيجار أو فواتير: اختر حصرياً "مصاريف تشغيلية" و type تساوي "EXPENSE".
-    3. إذا كانت مرتبات أو رسوم إدارية: اختر "مصاريف إدارية" و type تساوي "EXPENSE".
-    4. إذا كانت إعلانات أو تسويق أو فيسبوك: اختر "مصاريف دعاية وإعلان" و type تساوي "EXPENSE".
-    
+    مهمتك تحليل أي نص تجاري يدخله المستخدم واستخراج البيانات بدقة.
     أجب بصيغة JSON فقط بدون أي نص إضافي.
     """
     
@@ -130,7 +128,7 @@ def process_command_ai(text: str):
     {{
         "intent": "ADD_TRANSACTION",
         "type": "INCOME أو EXPENSE",
-        "category": "مصاريف تشغيلية أو مصاريف إدارية أو مصاريف دعاية وإعلان أو مبيعات",
+        "category": "مبيعات أو مصاريف تشغيلية أو مصاريف إدارية أو مصاريف دعاية وإعلان",
         "item_or_person": "اسم الصنف أو الخدمة الصافي المستخلص",
         "quantity": 1,
         "amount": 0
@@ -147,6 +145,11 @@ def process_command_ai(text: str):
         
         data = json.loads(raw_text)
         
+        # تصحيح قاطع: لو النص فيه بيع، اجبر الـ JSON يكون مبيعات وإيراد
+        if is_sale:
+            data["type"] = "INCOME"
+            data["category"] = "مبيعات"
+            
         if not data.get("amount") or data.get("amount") == 0:
             numbers = re.findall(r'\d+', text)
             if numbers:
@@ -155,7 +158,6 @@ def process_command_ai(text: str):
         return data
         
     except Exception:
-        is_sale = any(w in text for w in ["بيع", "بعت", "bاع", "باع", "قبضت"])
         numbers = re.findall(r'\d+', text)
         extracted_amount = int(numbers[-1]) if numbers else 0
         
