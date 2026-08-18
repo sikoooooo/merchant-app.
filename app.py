@@ -143,16 +143,25 @@ def process_command_ai(text: str):
 def post_journal_entry(tx_type, category, amount, description):
     """ترحيل القيود لجدول journal_entries"""
     entry_id = str(uuid.uuid4())
-    id_cash = 1
+    id_cash = 1  # حساب النقدية أو الخزينة
     
+    # تحديد الـ account_id الصح بناءً على نوع المعاملة أو الفئة
     if tx_type == "INCOME" or category == "مبيعات":
-        id_target = 4
+        id_target = 4  # المبيعات الآجلة (حسب شجرة الحسابات ID = 4)
         journal_data = [
             {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_target, "debit": 0.00, "credit": amount, "description": description}
         ]
     else:
-        id_target = 5
+        # تحديد الحساب المستهدف للمصروفات بناءً على النص أو التصنيف
+        desc_lower = description.lower()
+        if "دعاية" in desc_lower or "اعلان" in desc_lower or "إعلان" in desc_lower or "تسويق" in desc_lower:
+            id_target = 6  # مصاريف دعاية وإعلان (ID = 6 في الشجرة)
+        elif "أصل" in category or "عربية" in desc_lower or "سيارة" in desc_lower or "ثلاجة" in desc_lower:
+            id_target = 7  # الأصول الثابتة (ID = 7 في الشجرة)
+        else:
+            id_target = 5  # المصروفات الإدارية والعمومية افتراضياً (ID = 5 في الشجرة)
+
         journal_data = [
             {"entry_id": entry_id, "account_id": id_target, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_cash, "debit": 0.00, "credit": amount, "description": description}
