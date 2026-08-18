@@ -170,35 +170,32 @@ def process_command_ai(text: str):
 
 def post_journal_entry(category, amount, description):
     try:
-        # جلب جميع الحسابات من جدول chart_of_accounts
         accounts = supabase.table("chart_of_accounts").select("id, account_code, account_name").execute().data
-        
-        # إنشاء قاموس ذكي (Mapping) يربط الكود أو الاسم بالـ ID الحقيقي في الداتا بيز
-        acc_map = {}
-        for acc in accounts:
-            acc_map[str(acc.get("account_code"))] = acc.get("id")
-            acc_map[str(acc.get("account_name"))] = acc.get("id")
-            
+        acc_map = {acc.get("account_name"): acc.get("id") for acc in accounts}
+        # خريطة أكواد بديلة
+        code_map = {acc.get("account_code"): acc.get("id") for acc in accounts}
     except Exception as e:
-        print(f"Error fetching accounts: {e}")
+        print(f"Error: {e}")
         return False
 
-    # التقاط الـ IDs الحقيقية ديناميكياً بناءً على ما هو موجود فعلياً في الجدول
-    id_cash = acc_map.get("110301") or acc_map.get("المدينون (حسابات القبض)") or 1
-    id_sales = acc_map.get("410101") or acc_map.get("المبيعات الآجلة") or 4
-    id_expense = acc_map.get("510101") or acc_map.get("المصروفات الإدارية والعمومية") or 5
+    # جلب الـ IDs الحقيقية بناءً على الأسماء والأكواد
+    id_cash = code_map.get("110301") or acc_map.get("المدينون (حسابات القبض)") or 1
+    id_sales = code_map.get("410101") or acc_map.get("المبيعات الآجلة") or 4
     
-    # لو التصنيف "مصاريف دعاية وإعلان"، ممكن نوجهه على حساب المصروفات أو نخليه يروح للصح
+    # تحديد حساب المصروف المناسب حسب التصنيف اللي طلعه الذكاء الاصطناعي
+    if "دعاية" in category:
+        id_expense = acc_map.get("مصاريف دعاية وإعلان") or code_map.get("510102") or 5
+    else:
+        id_expense = code_map.get("510101") or acc_map.get("المصروفات الإدارية والعمومية") or 5
+
     entry_id = str(uuid.uuid4())
     
     if category == "مبيعات":
-        # من ح/ النقدية أو المدينون (مدين) إلى ح/ المبيعات (دائن)
         journal_data = [
             {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_sales, "debit": 0.00, "credit": amount, "description": description}
         ]
     else:
-        # لأي مصروف (تشغيلي، إداري، أو دعاية وإعلان): من ح/ المصروفات إلى ح/ النقدية
         journal_data = [
             {"entry_id": entry_id, "account_id": id_expense, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_cash, "debit": 0.00, "credit": amount, "description": description}
