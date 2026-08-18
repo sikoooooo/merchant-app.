@@ -11,14 +11,18 @@ API_KEYS = [
 ]
 
 def run_flash(prompt):
-    for key in API_KEYS:
+    last_error = ""
+    for idx, key in enumerate(API_KEYS):
         try:
             genai.configure(api_key=key)
-            model = genai.GenerativeModel("gemini-3.6-flash")
-            return model.generate_content(prompt).text
-        except:
+            # استخدام موديل Flash المدعوم في المكتبة
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            last_error = f"مفتاح #{idx+1} خطأ: {str(e)}"
             continue
-    raise Exception("فشلت جميع المفاتيح")
+    raise Exception(f"فشلت جميع المفاتيح. آخر خطأ: {last_error}")
 
 st.title("المحاسب الذكي - Flash")
 txt = st.text_input("أدخل المعاملة:")
@@ -28,6 +32,10 @@ if st.button("تنفيذ") and txt:
     حلل النص التالي محاسبياً بدقة: "{txt}"
     - إذا وجد عددين (مثل 10 كراتين الكرتونة ب 120)، اضرب الكمية في السعر لاستخراج الإجمالي (10 * 120 = 1200).
     - حدد النوع (REVENUE للمبيعات / EXPENSE للمصاريف).
-    أعطني النتيجة: النوع، الكمية، سعر الوحدة، الإجمالي.
+    أعطني النتيجة في شكل نقاط: النوع، الكمية، سعر الوحدة، الإجمالي.
     """
-    st.markdown(run_flash(p))
+    try:
+        result = run_flash(p)
+        st.markdown(result)
+    except Exception as err:
+        st.error(err)
