@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. التصميم الفاخر (UI/UX) ---
+# --- 2. التصميم الفاخر وتنظيف الشاشة (UI/UX) ---
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
@@ -24,6 +24,11 @@ html, body, [class*="css"] {
 .stApp {
     background: linear-gradient(135deg, #090d16 0%, #111827 100%);
     color: #f3f4f6;
+}
+/* إزالة أي خطوط تداخل أو فواصل وهمية في المنتصف */
+[data-testid="stHorizontalBlock"] {
+    gap: 1rem;
+    align-items: center;
 }
 .hero-header {
     background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
@@ -233,13 +238,12 @@ if not st.session_state.logged_in:
                     st.rerun()
 
 else:
-    # --- القائمة الجانبية (Sidebar المحدثة للتحكم الكامل واختيار الفرع) ---
+    # --- القائمة الجانبية (Sidebar المحدثة) ---
     with st.sidebar:
         st.markdown(f"### 💎 أهلاً، {st.session_state.user_name}")
         st.write(f"الدور: **{'الآدمن / الإدارة' if st.session_state.role == 'admin' else 'موظف مبيعات'}**")
         st.markdown("---")
         
-        # نقل اختيار فرع الآدمن للقائمة الجانبية لمنع زحمة الشاشة الرئيسية
         if st.session_state.role == "admin":
             st.markdown("### 📍 التحكم في الفروع")
             selected_admin_branch = st.selectbox(
@@ -263,28 +267,25 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # قسم منظم لإدارة الموظفين
-        with st.expander("🛠️ إدارة وصلاحيات موظفي الفروع (قائمة متعددة الاختيارات)", expanded=False):
-            st.write("يمكنك تحديث أسماء الموظفين، فروعهم، وصلاحياتهم بمرونة:")
+        with st.expander("🛠️ إدارة وصلاحيات موظفي الفروع (قائمة منسقة)", expanded=False):
+            st.write("يمكنك تحديث أسماء الموظفين، فروعهم، وصلاحياتهم بمرونة بدون أي تداخل:")
             
             for i, emp in enumerate(st.session_state.employees_list):
-                with st.container():
-                    cols = st.columns([2, 2, 3, 1])
-                    with cols[0]:
-                        new_name = st.text_input(f"اسم {i}", value=emp["name"], key=f"name_{i}")
-                    with cols[1]:
-                        new_branch = st.selectbox(f"فرع {i}", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], index=0 if emp["branch"]=="الفرع الرئيسي (القاهرة)" else 1, key=f"br_{i}")
-                    with cols[2]:
-                        default_perms = [p for p in emp["permissions"] if p in ALL_AVAILABLE_PERMISSIONS]
-                        new_perms = st.multiselect(f"صلاحيات {i}", options=ALL_AVAILABLE_PERMISSIONS, default=default_perms, key=f"perms_{i}")
-                    with cols[3]:
-                        st.write("")
-                        if st.button("💾 حفظ", key=f"save_{i}"):
-                            st.session_state.employees_list[i]["name"] = new_name
-                            st.session_state.employees_list[i]["branch"] = new_branch
-                            st.session_state.employees_list[i]["permissions"] = new_perms
-                            st.success(f"تم التحديث!")
-                            st.rerun()
+                # استخدام عمودين منفصلين لمنع أي خطوط أثرية وسط الشاشة
+                col_row1, col_row2 = st.columns([1, 1])
+                with col_row1:
+                    new_name = st.text_input(f"اسم الموظف {i+1}", value=emp["name"], key=f"name_{i}")
+                    new_branch = st.selectbox(f"الفرع {i+1}", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], index=0 if emp["branch"]=="الفرع الرئيسي (القاهرة)" else 1, key=f"br_{i}")
+                with col_row2:
+                    default_perms = [p for p in emp["permissions"] if p in ALL_AVAILABLE_PERMISSIONS]
+                    new_perms = st.multiselect(f"صلاحيات الموظف {i+1}", options=ALL_AVAILABLE_PERMISSIONS, default=default_perms, key=f"perms_{i}")
+                    
+                if st.button(f"💾 حفظ التعديلات للموظف {i+1}", key=f"save_{i}"):
+                    st.session_state.employees_list[i]["name"] = new_name
+                    st.session_state.employees_list[i]["branch"] = new_branch
+                    st.session_state.employees_list[i]["permissions"] = new_perms
+                    st.success(f"تم تحديث بيانات {new_name} بنجاح!")
+                    st.rerun()
                 st.markdown("---")
 
             st.markdown("#### ➕ إضافة موظف جديد")
@@ -311,7 +312,7 @@ else:
                     st.error("يرجى كتابة اسم الموظف.")
 
         st.markdown("---")
-        st.info(f"📍 الفرع النشط حالياً لتنفيذ العمليات: **{selected_admin_branch}** (يمكنك تغييره من القائمة الجانبية)")
+        st.info(f"📍 الفرع النشط حالياً لتنفيذ العمليات: **{selected_admin_branch}** (تم اختياره من القائمة الجانبية)")
         
         admin_input = st.text_input("✍️ أدخل معاملة إدارية شاملة أو استعلام عام:", placeholder="مثال: كرتونة البيض بكام؟ أو شراء أصل بـ 50000", key="admin_inp")
 
@@ -353,7 +354,7 @@ else:
     # --- شاشة الموظف ---
     else:
         st.subheader(f"👤 بوابة تسجيل الموظفين - {st.session_state.branch}")
-        st.info(text=f"أنت تسجل حالياً باسم: **{st.session_state.user_name}** في فرع **{st.session_state.branch}**")
+        st.info(f"أنت تسجل حالياً باسم: **{st.session_state.user_name}** في فرع **{st.session_state.branch}**")
 
         emp_input = st.text_input("✍️ سجل عملية البيع أو اسأل عن سعر صنف:", placeholder="مثال: بعنا 5 كراتين بـ 600 أو كرتونة البيض بكام؟", key="emp_in")
 
