@@ -201,32 +201,21 @@ def process_command_ai(text: str):
 
 def post_journal_entry(tx_type, category, amount, description):
     entry_id = str(uuid.uuid4())
-    try:
-        res = supabase.table("chart_of_accounts").select("id, account_code, account_name").execute()
-        accounts = res.data if res.data else []
-        acc_dict = {}
-        for acc in accounts:
-            acc_dict[str(acc.get("account_code"))] = acc.get("id")
-            acc_dict[str(acc.get("account_name"))] = acc.get("id")
-    except Exception as e:
-        print(f"Error fetching accounts: {e}")
-        return False
-
-    id_cash = acc_dict.get("110301") or acc_dict.get("المدينون (حسابات القبض)") or 1
     
+    # تحديد أرقام الحسابات صراحة وبشكل قاطع بدون أي افتراضات قديمة
+    # 1. النقدية/القبض = 1
+    id_cash = 1
+    
+    # 2. المبيعات دائماً = 4 (لو إيراد أو مبيعات)
+    # 3. المصروفات دائماً = 5 (لو مصروف أو دعاية)
     if tx_type == "INCOME" or category == "مبيعات":
-        id_target = acc_dict.get("410101") or acc_dict.get("المبيعات الآجلة") or 4
+        id_target = 4  # حساب المبيعات الآجلة/الإيرادات
         journal_data = [
             {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_target, "debit": 0.00, "credit": amount, "description": description}
         ]
     else:
-        # التوجيه للمصروفات المناسبة (دعاية أو تشغيلية أو إدارية)
-        if "دعاية" in category:
-            id_target = acc_dict.get("510102") or acc_dict.get("مصاريف دعاية وإعلان") or 5
-        else:
-            id_target = acc_dict.get("510101") or acc_dict.get("المصروفات الإدارية والعمومية") or 5
-            
+        id_target = 5  # حساب المصروفات/الدعاية
         journal_data = [
             {"entry_id": entry_id, "account_id": id_target, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description}
