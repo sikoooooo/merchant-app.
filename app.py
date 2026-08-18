@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. التصميم النظيف ومنع أي خطوط أثرية ---
+# --- 2. التصميم ومنع أي شوائب بصرية للـ Sidebar ---
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
@@ -48,7 +48,7 @@ html, body, [class*="css"] {
 
 # --- 3. بيانات الاتصال ومفاتيح الـ API ---
 SUPABASE_URL = "https://nqindgywshroejrcxtky.supabase.co"
-SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjgxNTExMCwiZXhwIjoyMTAyMzkxMTEwfQ.g-jpUzajE_OxGNNjF2QCFZINWjRfGSPCSHR2rtOtUTE"
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6In5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjgxNTExMCwiZXhwIjoyMTAyMzkxMTEwfQ.g-jpUzajE_OxGNNjF2QCFZINWjRfGSPCSHR2rtOtUTE"
 
 API_KEYS = [
     "AQ.Ab8RN6KsmZlOVBitqBHl9MTKvhDTCrOkLckSZOLq5opLxEM97g",
@@ -189,12 +189,12 @@ if "employees_list" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- شاشة تسجيل الدخول المرنة ---
+# --- شاشة تسجيل الدخول ---
 if not st.session_state.logged_in:
     st.markdown("""
     <div class="hero-header">
         <h1>🔐 نظام المحاسب الذكي - بوابة الدخول الموحدة</h1>
-        <p>اختر نوع حسابك للمتابعة بدون أي قوائم جانبية مزعجة</p>
+        <p>اختر نوع حسابك للمتابعة</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -230,126 +230,140 @@ if not st.session_state.logged_in:
                     st.rerun()
 
 else:
-    # شريط علوي نظيف بدلاً من الـ Sidebar لتجنب الأخطاء البصرية تماماً
-    top_col1, top_col2, top_col3 = st.columns([3, 2, 1])
-    with top_col1:
-        st.write(f"💎 أهلاً بك: **{st.session_state.user_name}** ({'الآدمن' if st.session_state.role == 'admin' else st.session_state.branch})")
-    with top_col3:
-        if st.button("🚪 خروج"):
-            st.session_state.logged_in = False
-            st.session_state.role = None
-            st.rerun()
-            
-    st.markdown("---")
-
-    # --- لوحة الآدمن ---
+    # القائمة الجانبية تظهر حصرياً وبشكل ثابت للآدمن فقط لضمان عدم حدوث أي عيوب بصرية للموظفين
     if st.session_state.role == "admin":
+        with st.sidebar:
+            st.markdown("### 👑 لوحة التحكم الإدارية")
+            st.write(f"مرحباً بك: **{st.session_state.user_name}**")
+            st.markdown("---")
+            admin_page = st.radio(
+                "اختر القسم:",
+                ["📊 متابعة العمليات والشات الذكي", "🛠️ إدارة الموظفين والصلاحيات"]
+            )
+            st.markdown("---")
+            if st.button("🚪 تسجيل الخروج"):
+                st.session_state.logged_in = False
+                st.session_state.role = None
+                st.rerun()
+    else:
+        admin_page = "📊 متابعة العمليات والشات الذكي"
+        # شريط علوي خفيف للموظف لتسجيل الخروج بدون Sidebar
+        top_c1, top_c2 = st.columns([4, 1])
+        with top_c1:
+            st.write(f"👤 الموظف: **{st.session_state.user_name}** | 📍 الفرع: **{st.session_state.branch}**")
+        with top_c2:
+            if st.button("🚪 خروج"):
+                st.session_state.logged_in = False
+                st.session_state.role = None
+                st.rerun()
+        st.markdown("---")
+
+    # --- واجهة الآدمن: إدارة الموظفين ---
+    if st.session_state.role == "admin" and admin_page == "🛠️ إدارة الموظفين والصلاحيات":
         st.markdown("""
         <div class="hero-header">
-            <h2>👑 لوحة تحكم الإدارة العليا</h2>
-            <p>إدارة الموظفين وصلاحياتهم، وتوجيه العمليات للفروع مباشرة</p>
+            <h2>🛠️ إدارة الموظفين والصلاحيات</h2>
+            <p>تعديل بيانات وفروع وصلاحيات طاقم العمل بكل سهولة</p>
         </div>
         """, unsafe_allow_html=True)
         
-        # اختيار الفرع المستهدف في الأعلى بوضوح
-        selected_admin_branch = st.selectbox(
-            "📍 اختر الفرع المراد اتخاذ إجراءات عليه:",
-            ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"]
-        )
-        
-        with st.expander("🛠️ إدارة وصلاحيات موظفي الفروع (قائمة منسقة متعددة الاختيارات)", expanded=False):
-            for i, emp in enumerate(st.session_state.employees_list):
-                c1, c2 = st.columns([1, 1])
-                with c1:
-                    new_name = st.text_input(f"اسم الموظف {i+1}", value=emp["name"], key=f"name_{i}")
-                    new_branch = st.selectbox(f"الفرع {i+1}", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], index=0 if emp["branch"]=="الفرع الرئيسي (القاهرة)" else 1, key=f"br_{i}")
-                with c2:
-                    default_perms = [p for p in emp["permissions"] if p in ALL_AVAILABLE_PERMISSIONS]
-                    new_perms = st.multiselect(f"صلاحيات الموظف {i+1}", options=ALL_AVAILABLE_PERMISSIONS, default=default_perms, key=f"perms_{i}")
-                    
-                if st.button(f"💾 حفظ تعديلات الموظف {i+1}", key=f"save_{i}"):
-                    st.session_state.employees_list[i]["name"] = new_name
-                    st.session_state.employees_list[i]["branch"] = new_branch
-                    st.session_state.employees_list[i]["permissions"] = new_perms
-                    st.success(f"تم التحديث بنجاح!")
-                    st.rerun()
-                st.markdown("---")
-
-            st.markdown("#### ➕ إضافة موظف جديد")
-            ac1, ac2 = st.columns(2)
-            with ac1:
-                new_emp_name = st.text_input("اسم الموظف الجديد:", placeholder="مثال: أحمد محمد")
-                new_emp_branch = st.selectbox("تعيين للفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="new_branch_add")
-            with ac2:
-                new_emp_perms = st.multiselect("اختر الصلاحيات:", options=ALL_AVAILABLE_PERMISSIONS, default=["تسجيل مبيعات", "استعلام عن الأسعار"], key="new_perms_add")
-            
-            if st.button("✨ إضافة واعتماد الموظف"):
-                if new_emp_name:
-                    new_id = len(st.session_state.employees_list) + 1
-                    st.session_state.employees_list.append({
-                        "id": new_id,
-                        "name": new_emp_name,
-                        "role": "موظف مبيعات",
-                        "branch": new_emp_branch,
-                        "permissions": new_emp_perms
-                    })
-                    st.success("تمت الإضافة بنجاح!")
-                    st.rerun()
-
-        st.markdown("---")
-        target_branch = selected_admin_branch
-    else:
-        target_branch = st.session_state.branch
-
-    # --- واجهة المحاسب الآلي التفاعلية (نظام الشات المستقر) ---
-    st.markdown(f"### 🤖 مساعد المحاسب الآلي (فرع: {target_branch})")
-    st.write("اكتب معاملتك أو استفسارك وسيقوم المحاسب الآلي بالتحليل والتسجيل الفوري:")
-
-    # عرض الرسائل السابقة
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    # إدخال المحادثة الحديث والمستقر (بديل حقول الإدخال التقليدية)
-    if prompt := st.chat_input("اكتب هنا (مثال: كرتونة البيض بكام؟ أو بعنا 5 بـ 500)..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            with st.spinner("جاري تحليل المعالجة بواسطة الذكاء الاصطناعي..."):
-                data = process_command_ai(prompt)
+        for i, emp in enumerate(st.session_state.employees_list):
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                new_name = st.text_input(f"اسم الموظف {i+1}", value=emp["name"], key=f"name_{i}")
+                new_branch = st.selectbox(f"الفرع {i+1}", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], index=0 if emp["branch"]=="الفرع الرئيسي (القاهرة)" else 1, key=f"br_{i}")
+            with c2:
+                default_perms = [p for p in emp["permissions"] if p in ALL_AVAILABLE_PERMISSIONS]
+                new_perms = st.multiselect(f"صلاحيات الموظف {i+1}", options=ALL_AVAILABLE_PERMISSIONS, default=default_perms, key=f"perms_{i}")
                 
-                if data.get("type") == "QUERY":
-                    found_item = search_item_price(prompt, target_branch)
-                    if found_item:
-                        response_text = f"🔍 **نتيجة الاستعلام في ({target_branch}):** الصنف ({found_item.get('item_or_person')}) بقيمة ({found_item.get('amount')} ج.م)."
-                    else:
-                        response_text = f"⚠️ عذراً، لم أجد تسجيلاً لهذا الصنف في بيانات {target_branch}."
-                else:
-                    amt = data.get("amount", 0)
-                    tx_type = data.get("type", "INCOME")
-                    tx_category = data.get("category", "مبيعات")
-                    item = data.get("item_or_person", prompt)
-                    qty = data.get("quantity", 1)
-                    
-                    if amt == 0:
-                        response_text = "⚠️ لم أستطع تحديد المبلغ بوضوح، يرجى كتابة الرقم مع العملية."
-                    else:
-                        supabase.table("transactions").insert({
-                            "type": tx_type,
-                            "item_or_person": item,
-                            "quantity": qty,
-                            "amount": amt,
-                            "raw_text": prompt,
-                            "created_by_user_id": USER_ID,
-                            "category": tx_category,
-                            "branch": target_branch,
-                            "employee": st.session_state.user_name
-                        }).execute()
-                        
-                        post_journal_entry(tx_type, tx_category, amt, prompt)
-                        response_text = f"✅ **تم تسجيل العملية بنجاح في ({target_branch})!**\n- البيان: {item}\n- القيمة: {amt} ج.م"
+            if st.button(f"💾 حفظ التعديلات للموظف {i+1}", key=f"save_{i}"):
+                st.session_state.employees_list[i]["name"] = new_name
+                st.session_state.employees_list[i]["branch"] = new_branch
+                st.session_state.employees_list[i]["permissions"] = new_perms
+                st.success("تم الحفظ بنجاح!")
+                st.rerun()
+            st.markdown("---")
 
-                st.markdown(response_text)
-                st.session_state.messages.append({"role": "assistant", "content": response_text})
+        st.markdown("#### ➕ إضافة موظف جديد")
+        ac1, ac2 = st.columns(2)
+        with ac1:
+            new_emp_name = st.text_input("اسم الموظف الجديد:")
+            new_emp_branch = st.selectbox("الفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="new_br_add")
+        with ac2:
+            new_emp_perms = st.multiselect("الصلاحيات الممنوحة:", options=ALL_AVAILABLE_PERMISSIONS, default=["تسجيل مبيعات", "استعلام عن الأسعار"], key="new_p_add")
+            
+        if st.button("✨ اعتماد وإضافة الموظف"):
+            if new_emp_name:
+                new_id = len(st.session_state.employees_list) + 1
+                st.session_state.employees_list.append({
+                    "id": new_id,
+                    "name": new_emp_name,
+                    "role": "موظف مبيعات",
+                    "branch": new_emp_branch,
+                    "permissions": new_emp_perms
+                })
+                st.success("تمت الإضافة بنجاح!")
+                st.rerun()
+
+    else:
+        # --- واجهة الشات الذكي والمساعد الآلي الموحدة ---
+        if st.session_state.role == "admin":
+            target_branch = st.selectbox("📍 اختر الفرع المراد متابعته عبر المساعد الآلي:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
+        else:
+            target_branch = st.session_state.branch
+
+        st.markdown(f"""
+        <div class="hero-header">
+            <h2>🤖 المحاسب الذكي التفاعلي</h2>
+            <p>فرع التشغيل الحالي: <b>{target_branch}</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # عرض رسائل الشات السابقة
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # إدخال المحادثة
+        if prompt := st.chat_input("اكتب معاملتك هنا (مثال: بعنا 10 كرتونة بـ 2500 أو كرتونة البيض بكام؟)..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            with st.chat_message("assistant"):
+                with st.spinner("جاري معالجة العملية وتسجيلها..."):
+                    data = process_command_ai(prompt)
+                    
+                    if data.get("type") == "QUERY":
+                        found_item = search_item_price(prompt, target_branch)
+                        if found_item:
+                            response_text = f"🔍 **نتيجة الاستعلام في ({target_branch}):** الصنف ({found_item.get('item_or_person')}) بقيمة ({found_item.get('amount')} ج.م)."
+                        else:
+                            response_text = f"⚠️ عذراً، لم أجد تسجيلاً لهذا الصنف في بيانات {target_branch}."
+                    else:
+                        amt = data.get("amount", 0)
+                        tx_type = data.get("type", "INCOME")
+                        tx_category = data.get("category", "مبيعات")
+                        item = data.get("item_or_person", prompt)
+                        qty = data.get("quantity", 1)
+                        
+                        if amt == 0:
+                            response_text = "⚠️ لم أستطع تحديد المبلغ بدقة، يرجى كتابة الرقم مع العملية بوضوح."
+                        else:
+                            supabase.table("transactions").insert({
+                                "type": tx_type,
+                                "item_or_person": item,
+                                "quantity": qty,
+                                "amount": amt,
+                                "raw_text": prompt,
+                                "created_by_user_id": USER_ID,
+                                "category": tx_category,
+                                "branch": target_branch,
+                                "employee": st.session_state.user_name
+                            }).execute()
+                            
+                            post_journal_entry(tx_type, tx_category, amt, prompt)
+                            response_text = f"✅ **تم تسجيل العملية بنجاح في ({target_branch})!**\n- البيان: {item}\n- القيمة: {amt} ج.م"
+
+                    st.markdown(response_text)
+                    st.session_state.messages.append({"role": "assistant", "content": response_text})
