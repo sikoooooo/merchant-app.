@@ -68,30 +68,35 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 USER_ID = "855633fe-a3a8-400d-a9ae-9fe439e658bd"
 
 def process_command_ai(text: str):
-    """محاولة التحليل عبر مفاتيح الـ API باستخدام Gemini Pro، مع تعزيز منطق التمييز بين البيع والشراء"""
+    """محاولة التحليل عبر مفاتيح الـ API مع معالجة الأصول الثابتة وحساب الإجمالي الذكي"""
     data = None
     
-    # قائمة الكلمات الدلالية الصارمة للبيع (الإيرادات)
     income_keywords = ["بيع", "بعت", "بعنا", "باع", "مبيعات", "قبضت", "قبضنا", "حصلنا", "توريد"]
     is_sale = any(w in text for w in income_keywords)
     
-    # محاولة استخدام المفاتيح بالترتيب
     for key in API_KEYS:
         try:
             genai.configure(api_key=key)
             system_instruction = """
             أنت محاسب ذكي وخبير في تجارة الجملة والمفرد باللهجة العامية المصرية.
-            قاعدة أساسية صارمة جداً: 
-            - لو الجملة فيها أي دلالة على البيع (مثل: بيع، بعت، بعنا، قبضت، مبيعات) يكون "type" هو "INCOME" و"category" هو "مبيعات".
-            - لو الجملة فيها شراء، مصاريف، إيجار، دفع، بضاعة اشتريناها يكون "type" هو "EXPENSE" والتصنيف مناسب للمصروف.
-            
-            حلل الجملة التجارية وأجب بصيغة JSON نقي فقط بالحقول التالية:
-            1. "type": "INCOME" أو "EXPENSE" (طبق القاعدة الصارمة للبيع أعلاه).
-            2. "category": حدد حصرياً من (مبيعات، مصاريف تشغيلية، مصاريف دعاية وإعلان، مصاريف إدارية).
-            3. "item_or_person": اسم الصنف أو البيان.
+            قواعد التصنيف الدقيقة:
+            1. "type": 
+               - "INCOME" لو المعاملة فيها بيع، إيراد، أو قبض.
+               - "EXPENSE" لو شراء بضاعة، مصاريف، إيجار، دفع، أو شراء أصول ثابتة.
+            2. "category": حدد حصرياً التصنيف الأنسب من:
+               - "مبيعات"
+               - "مشتريات وبضاعة" (لبضاعة المخزن التجارية)
+               - "أصول ثابتة" (للأشياء الكبيرة طويلة الأجل مثل: عربية نقل، ثلاجة عرض، معدات)
+               - "مصاريف تشغيلية" (لليومي مثل: إيجار، كهرباء، نقل بضائع عادي)
+               - "مصاريف دعاية وإعلان"
+               - "مصاريف إدارية ورواتب"
+            3. "item_or_person": اسم الصنف أو البيان بوضوح.
             4. "quantity": الكمية الرقمية (لو غير مذكورة، ضعها 1).
-            5. "amount": المبلغ الإجمالي النهائي (مع ضرب الكمية في السعر لو جملة مثل '10 كراتين بـ 150' فيكون المبلغ 1500). لو غير موجود، اجعله 0.
-            بدون أي نص خارجي وبدون علامات الـ markdown.
+            5. "amount": المبلغ الإجمالي النهائي للعملية:
+               - لو الجملة تعبر عن سعر مفرد للوحدة (مثل: '10 كراتين الكرتونة بـ 150')، اضرب الكمية في السعر (10 * 150 = 1500).
+               - لو الجملة تعبر عن مبلغ إجمالي صريح مباشر (مثل: 'اشترينا 2 طن رز بـ 40000' أو 'عربية بـ 500000')، فالمبلغ الإجمالي هو الرقم المذكور ولا تضربه في الكمية.
+            
+            أجب بصيغة JSON نقي فقط بدون أي نص خارجي وبدون علامات الـ markdown.
             """
             model = genai.GenerativeModel(model_name='gemini-1.5-pro', system_instruction=system_instruction)
             res = model.generate_content(f"حلل المعاملة بدقة: '{text}'")
@@ -104,7 +109,6 @@ def process_command_ai(text: str):
                 
             data = json.loads(raw_text)
             if data and "amount" in data:
-                # تأكيد إضافي لو الموديل لخبط ونحن متأكدين أنها مبيعات
                 if is_sale:
                     data["type"] = "INCOME"
                     data["category"] = "مبيعات"
@@ -112,25 +116,30 @@ def process_command_ai(text: str):
         except Exception:
             continue
             
-    # المنطق المحلي المضمون 100%
+    # المنطق المحلي المحسن (Fallback)
     numbers = [int(n) for n in re.findall(r'\d+', text)]
-    if len(numbers) >= 2:
+    is_total_format = any(w in text for w in ["بـ", "ب ", "إجمالي", "مبلغ"]) and len(numbers) >= 2 and any(k in text for k in ["طن", "عربية", "إيجار", "مليون", "الف"])
+    
+    if len(numbers) >= 2 and not is_total_format and ("الكرتونة" in text or "القطعة" in text or "الواحدة" in text):
         amount = numbers[0] * numbers[1]
         qty = numbers[0]
-    elif len(numbers) == 1:
-        amount = numbers[0]
-        qty = 1
+    elif len(numbers) >= 1:
+        amount = numbers[-1]
+        qty = numbers[0] if len(numbers) >= 2 and not is_total_format else 1
     else:
         amount = 0
         qty = 1
         
+    is_asset = any(w in text for w in ["عربية", "سيارة", "ثلاجة", "معدات", "ميزان"])
+    
     return {
         "type": "INCOME" if is_sale else "EXPENSE",
-        "category": "مبيعات" if is_sale else "مصاريف تشغيلية",
+        "category": "مبيعات" if is_sale else ("أصول ثابتة" if is_asset else "مشتريات وبضاعة"),
         "item_or_person": text,
         "quantity": qty,
         "amount": amount
     }
+
 def post_journal_entry(tx_type, category, amount, description):
     """ترحيل القيود لجدول journal_entries"""
     entry_id = str(uuid.uuid4())
@@ -176,7 +185,6 @@ if st.button("🚀 تنفيذ وحفظ المعاملة"):
             if amt == 0:
                 st.error("⚠️ عذراً، لم أستطع تحديد المبلغ. من فضلك أدخل المبلغ أو السعر بوضوح.")
             else:
-                # 1. حفظ في جدول transactions
                 supabase.table("transactions").insert({
                     "type": tx_type,
                     "item_or_person": item,
@@ -187,7 +195,6 @@ if st.button("🚀 تنفيذ وحفظ المعاملة"):
                     "category": tx_category
                 }).execute()
                 
-                # 2. ترحيل القيود
                 post_journal_entry(tx_type, tx_category, amt, voice_input)
                 
                 border_color = "#10b981" if tx_type == "INCOME" else "#f59e0b"
