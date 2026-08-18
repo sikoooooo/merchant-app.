@@ -155,7 +155,7 @@ def process_command_ai(text: str):
         return data
         
     except Exception:
-        is_sale = any(w in text for w in ["بيع", "بعت", "باع", "قبضت"])
+        is_sale = any(w in text for w in ["بيع", "بعت", "bاع", "باع", "قبضت"])
         numbers = re.findall(r'\d+', text)
         extracted_amount = int(numbers[-1]) if numbers else 0
         
@@ -170,7 +170,6 @@ def process_command_ai(text: str):
 
 def post_journal_entry(tx_type, category, amount, description):
     entry_id = str(uuid.uuid4())
-    
     try:
         res = supabase.table("chart_of_accounts").select("id, account_code, account_name").execute()
         accounts = res.data if res.data else []
@@ -182,19 +181,15 @@ def post_journal_entry(tx_type, category, amount, description):
         print(f"Error fetching accounts: {e}")
         return False
 
-    # حساب النقدية الأساسي
     id_cash = acc_dict.get("110301") or acc_dict.get("المدينون (حسابات القبض)") or 1
     
-    # التوجيه الحقيقي المبني على نوع الحركة (INCOME vs EXPENSE)
     if tx_type == "INCOME" or category == "مبيعات":
-        # لو إيراد/مبيعات: من ح/ النقدية (مدين) إلى ح/ المبيعات (دائن)
         id_target = acc_dict.get("410101") or acc_dict.get("المبيعات الآجلة") or 4
         journal_data = [
             {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_target, "debit": 0.00, "credit": amount, "description": description}
         ]
     else:
-        # لو مصروف: من ح/ المصروفات (مدين) إلى ح/ النقدية (دائن)
         id_target = acc_dict.get("510101") or acc_dict.get("المصروفات الإدارية والعمومية") or 5
         journal_data = [
             {"entry_id": entry_id, "account_id": id_target, "debit": amount, "credit": 0.00, "description": description},
@@ -203,6 +198,7 @@ def post_journal_entry(tx_type, category, amount, description):
         
     supabase.table("journal_entries").insert(journal_data).execute()
     return True
+
 # --- 4. واجهة المستخدم ---
 st.markdown("""
     <div class="hero-header">
@@ -244,7 +240,6 @@ with tab1:
                 if intent == "ADD_TRANSACTION":
                     amt = data.get("amount", 0)
                     
-                    # تصحيح ذكي قاطع للشك باليقين بناءً على النص المدخل
                     is_sale_text = any(w in voice_input for w in ["بيع", "بعت", "باع", "قبضت", "مبيعات"])
                     
                     if is_sale_text:
@@ -257,7 +252,6 @@ with tab1:
                     item = data.get("item_or_person", "عام")
                     qty = data.get("quantity", 1)
                     
-                    # حفظ المعاملة في الجدول بالبيانات المصححة تماماً
                     supabase.table("transactions").insert({
                         "type": tx_type,
                         "item_or_person": item,
@@ -268,8 +262,8 @@ with tab1:
                         "category": tx_category
                     }).execute()
                     
-                    # ترحيل القيد المحاسبي المزدوج بدقة
-                    post_journal_entry(tx_category, amt, voice_input)
+                    # استدعاء دالة القيود بالباراميترات الأربعة المظبوطة تماماً
+                    post_journal_entry(tx_type, tx_category, amt, voice_input)
                     
                     if tx_type == "INCOME":
                         confirm_msg = f"✅ تم بنجاح! تسجيل مبيعات لـ ({item}) بقيمة ({amt} ج.م) وترحيله بدفتر القيود."
