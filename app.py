@@ -68,8 +68,12 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 USER_ID = "855633fe-a3a8-400d-a9ae-9fe439e658bd"
 
 def process_command_ai(text: str):
-    """محاولة التحليل عبر مفاتيح الـ API باستخدام Gemini Pro، مع نظام أمان محلي لو المفاتيح انتهت أو فشلت"""
+    """محاولة التحليل عبر مفاتيح الـ API باستخدام Gemini Pro، مع تعزيز منطق التمييز بين البيع والشراء"""
     data = None
+    
+    # قائمة الكلمات الدلالية الصارمة للبيع (الإيرادات)
+    income_keywords = ["بيع", "بعت", "بعنا", "باع", "مبيعات", "قبضت", "قبضنا", "حصلنا", "توريد"]
+    is_sale = any(w in text for w in income_keywords)
     
     # محاولة استخدام المفاتيح بالترتيب
     for key in API_KEYS:
@@ -77,12 +81,16 @@ def process_command_ai(text: str):
             genai.configure(api_key=key)
             system_instruction = """
             أنت محاسب ذكي وخبير في تجارة الجملة والمفرد باللهجة العامية المصرية.
+            قاعدة أساسية صارمة جداً: 
+            - لو الجملة فيها أي دلالة على البيع (مثل: بيع، بعت، بعنا، قبضت، مبيعات) يكون "type" هو "INCOME" و"category" هو "مبيعات".
+            - لو الجملة فيها شراء، مصاريف، إيجار، دفع، بضاعة اشتريناها يكون "type" هو "EXPENSE" والتصنيف مناسب للمصروف.
+            
             حلل الجملة التجارية وأجب بصيغة JSON نقي فقط بالحقول التالية:
-            1. "type": حدد "INCOME" لو مبيعات أو إيراد، أو "EXPENSE" لو مصاريف أو شراء.
+            1. "type": "INCOME" أو "EXPENSE" (طبق القاعدة الصارمة للبيع أعلاه).
             2. "category": حدد حصرياً من (مبيعات، مصاريف تشغيلية، مصاريف دعاية وإعلان، مصاريف إدارية).
             3. "item_or_person": اسم الصنف أو البيان.
             4. "quantity": الكمية الرقمية (لو غير مذكورة، ضعها 1).
-            5. "amount": المبلغ الإجمالي النهائي (مع ضرب الكمية في السعر لو جملة مثل '10 كراتين الكرتونة بـ 120' فيكون المبلغ 1200). لو غير موجود، اجعله 0.
+            5. "amount": المبلغ الإجمالي النهائي (مع ضرب الكمية في السعر لو جملة مثل '10 كراتين بـ 150' فيكون المبلغ 1500). لو غير موجود، اجعله 0.
             بدون أي نص خارجي وبدون علامات الـ markdown.
             """
             model = genai.GenerativeModel(model_name='gemini-1.5-pro', system_instruction=system_instruction)
@@ -96,15 +104,16 @@ def process_command_ai(text: str):
                 
             data = json.loads(raw_text)
             if data and "amount" in data:
+                # تأكيد إضافي لو الموديل لخبط ونحن متأكدين أنها مبيعات
+                if is_sale:
+                    data["type"] = "INCOME"
+                    data["category"] = "مبيعات"
                 return data
         except Exception:
             continue
             
-    # لو كل المفاتيح فشلت (بسبب الصلاحية أو الـ Token)، اشتغل بالمنطق المحلي السريع المضمون 100%
+    # المنطق المحلي المضمون 100%
     numbers = [int(n) for n in re.findall(r'\d+', text)]
-    is_sale = any(w in text for w in ["بيع", "بعت", "باع", "مبيعات", "قبضت"])
-    
-    # حساب ذكي لو فيه رقمين (مثل 10 و 120)
     if len(numbers) >= 2:
         amount = numbers[0] * numbers[1]
         qty = numbers[0]
@@ -122,7 +131,6 @@ def process_command_ai(text: str):
         "quantity": qty,
         "amount": amount
     }
-
 def post_journal_entry(tx_type, category, amount, description):
     """ترحيل القيود لجدول journal_entries"""
     entry_id = str(uuid.uuid4())
