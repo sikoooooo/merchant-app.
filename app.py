@@ -48,7 +48,7 @@ html, body, [class*="css"] {
     border-radius: 12px !important;
     font-weight: 700 !important;
     border: none !important;
-    padding: 12px 28px !important;
+    padding: 10px 20px !important;
     width: 100%;
 }
 </style>
@@ -179,6 +179,14 @@ if "logged_in" not in st.session_state:
     st.session_state.user_name = ""
     st.session_state.branch = ""
 
+# تهيئة قائمة الموظفين في الذاكرة لتعديل الصلاحيات ديناميكياً
+if "employees_list" not in st.session_state:
+    st.session_state.employees_list = [
+        {"id": 1, "name": "محمود", "role": "موظف مبيعات", "branch": "الفرع الرئيسي (القاهرة)", "permission": "تسجيل مبيعات واستعلام"},
+        {"id": 2, "name": "إسلام", "role": "مسؤول مخازن", "branch": "الفرع الرئيسي (القاهرة)", "permission": "جرد ومتابعة مخزن"},
+        {"id": 3, "name": "خالد", "role": "موظف مبيعات", "branch": "فرع الإسكندرية", "permission": "تسجيل مبيعات واستعلام فرع الإسكندرية"}
+    ]
+
 if not st.session_state.logged_in:
     st.markdown("""
     <div class="hero-header">
@@ -204,16 +212,19 @@ if not st.session_state.logged_in:
                 else:
                     st.error("خطأ في بيانات الآدمن.")
         else:
-            emp_select = st.selectbox("اختر اسمك:", ["محمود (مبيعات القاهرة)", "إسلام (مخازن القاهرة)", "خالد (مبيعات الإسكندرية)"])
-            emp_branch_val = "فرع الإسكندرية" if "الإسكندرية" in emp_select else "الفرع الرئيسي (القاهرة)"
+            emp_names_selection = [e["name"] + f" ({e['branch']})" for e in st.session_state.employees_list]
+            emp_select = st.selectbox("اختر اسمك:", emp_names_selection)
+            selected_emp_obj = next((e for e in st.session_state.employees_list if e["name"] in emp_select), None)
+            
             pin_code = st.text_input("رمز الدخول السريع (PIN):", type="password", value="0000")
             
             if st.button("دخول بوابة الموظفين"):
-                st.session_state.logged_in = True
-                st.session_state.role = "employee"
-                st.session_state.user_name = emp_select
-                st.session_state.branch = emp_branch_val
-                st.rerun()
+                if selected_emp_obj:
+                    st.session_state.logged_in = True
+                    st.session_state.role = "employee"
+                    st.session_state.user_name = selected_emp_obj["name"]
+                    st.session_state.branch = selected_emp_obj["branch"]
+                    st.rerun()
 
 else:
     st.markdown(f"""
@@ -237,25 +248,48 @@ else:
     if st.session_state.role == "admin":
         st.subheader("👑 لوحة تحكم الإدارة العليا (صاحب المؤسسة)")
         
-        # قائمة ديناميكية واضحة لادارة الموظفين والفروع والصلاحيات
-        with st.expander("🛠️ إدارة وصلاحيات موظفي الفروع (قائمة ديناميكية لإدارة الموظفين)", expanded=True):
-            st.write("من هنا يمكنك متابعة الموظفين المسجلين في الفروع المختلفة وتحديد صلاحياتهم:")
+        # قائمة ديناميكية تفاعلية لإدارة وتعديل صلاحيات الموظفين الحاليين
+        with st.expander("🛠️ إدارة وتعديل صلاحيات موظفي الفروع الحاليين", expanded=True):
+            st.write("يمكنك تعديل صلاحية أو فرع أي موظف حالي، أو إضافة موظف جديد:")
             
-            col_m1, col_m2 = st.columns(2)
-            with col_m1:
-                st.markdown("#### 🏢 الفرع الرئيسي (القاهرة)")
-                st.markdown("- **محمود** (مبيعات) - *صلاحية تسجيل مبيعات واستعلام*")
-                st.markdown("- **إسلام** (مخازن) - *صلاحية جرد ومتابعة مخزن*")
-            with col_m2:
-                st.markdown("#### 🏢 فرع الإسكندرية")
-                st.markdown("- **خالد** (مبيعات) - *صلاحية تسجيل مبيعات واستعلام فرع الإسكندرية*")
+            # جدول تفاعلي لتعديل الموظفين الحاليين
+            for i, emp in enumerate(st.session_state.employees_list):
+                with st.container():
+                    cols = st.columns([2, 2, 2, 1])
+                    with cols[0]:
+                        new_name = st.text_input(f"اسم {i}", value=emp["name"], key=f"name_{i}")
+                    with cols[1]:
+                        new_branch = st.selectbox(f"فرع {i}", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], index=0 if emp["branch"]=="الفرع الرئيسي (القاهرة)" else 1, key=f"br_{i}")
+                    with cols[2]:
+                        new_perm = st.text_input(f"صلاحية {i}", value=emp["permission"], key=f"perm_{i}")
+                    with cols[3]:
+                        st.write("")
+                        if st.button("💾 حفظ", key=f"save_{i}"):
+                            st.session_state.employees_list[i]["name"] = new_name
+                            st.session_state.employees_list[i]["branch"] = new_branch
+                            st.session_state.employees_list[i]["permission"] = new_perm
+                            st.success(f"تم تحديث بيانات {new_name} بنجاح!")
+                            st.rerun()
+                st.markdown("---")
+
+            # إضافة موظف جديد
+            st.markdown("#### ➕ إضافة موظف جديد للقائمة")
+            new_emp_name = st.text_input("اسم الموظف الجديد:", placeholder="مثال: أحمد محمد")
+            new_emp_branch = st.selectbox("تعيين للفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="new_branch_add")
+            new_emp_perm = st.text_input("تحديد الصلاحية:", value="تسجيل مبيعات واستعلام")
             
-            st.markdown("---")
-            new_emp_name = st.text_input("إضافة موظف جديد:", placeholder="اسم الموظف الثلاثي")
-            new_emp_branch = st.selectbox("تعيين الفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="nb")
-            if st.button("➕ حفظ واعتماد الموظف الجديد"):
+            if st.button("✨ إضافة واعتماد الموظف"):
                 if new_emp_name:
-                    st.success(f"تم بنجاح إضافة الموظف ({new_emp_name}) لـ {new_emp_branch} ومنحه صلاحيات البيع والاستعلام!")
+                    new_id = len(st.session_state.employees_list) + 1
+                    st.session_state.employees_list.append({
+                        "id": new_id,
+                        "name": new_emp_name,
+                        "role": "موظف مبيعات",
+                        "branch": new_emp_branch,
+                        "permission": new_emp_perm
+                    })
+                    st.success(f"تمت إضافة الموظف {new_emp_name} بنجاح!")
+                    st.rerun()
                 else:
                     st.error("يرجى كتابة اسم الموظف.")
 
