@@ -171,22 +171,35 @@ def process_command_ai(text: str):
 def post_journal_entry(category, amount, description):
     entry_id = str(uuid.uuid4())
     
-    # حل نهائي ومباشر بدون لف دوران:
-    # حساب النقدية/المدينون دائماً الـ ID بتاعه = 1 (حسب جدولك)
-    id_cash = 1
+    try:
+        # جلب الحسابات من جدول chart_of_accounts بناءً على الأسم أو الكود
+        res = supabase.table("chart_of_accounts").select("id, account_code, account_name").execute()
+        accounts = res.data if res.data else []
+        
+        # إنشاء قاموس للبحث السريع
+        acc_dict = {}
+        for acc in accounts:
+            acc_dict[str(acc.get("account_code"))] = acc.get("id")
+            acc_dict[str(acc.get("account_name"))] = acc.get("id")
+            
+    except Exception as e:
+        print(f"Error fetching accounts: {e}")
+        return False
+
+    # البحث عن الـ IDs المعتمدة بدقة تامة من الداتا بيز الحقيقية
+    # 1. حساب النقدية أو المدينون (الطرف الثابت للقبض والصرف)
+    id_cash = acc_dict.get("110301") or acc_dict.get("المدينون (حسابات القبض)") or 1
     
-    # تحديد رقم الحساب المالي مباشرة حسب التصنيف
     if category == "مبيعات":
-        id_target = 4  # حساب المبيعات
-        # مبيعات: المدين نقدية (1) ، الدائن مبيعات (4)
+        # 2. حساب المبيعات
+        id_target = acc_dict.get("410101") or acc_dict.get("المبيعات الآجلة") or 4
         journal_data = [
             {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_target, "debit": 0.00, "credit": amount, "description": description}
         ]
     else:
-        # لأي مصروف (دعاية، تشغيلي، إداري): هيروح على حساب المصروفات (5)
-        id_target = 5  # حساب المصروفات / الدعاية
-        # مصروفات: المدين مصروفات (5) ، الدائن نقدية (1)
+        # 3. حساب المصروفات أو الدعاية
+        id_target = acc_dict.get("510101") or acc_dict.get("المصروفات الإدارية والعمومية") or 5
         journal_data = [
             {"entry_id": entry_id, "account_id": id_target, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_cash, "debit": 0.00, "credit": amount, "description": description}
