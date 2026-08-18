@@ -6,50 +6,32 @@ import google.generativeai as genai
 from supabase import create_client, Client
 
 # --- 1. إعدادات الصفحة الاحترافية ---
-st.set_page_config(
-    page_title="المحاسب الذكي - Enterprise Pro",
-    page_icon="💼",
-    layout="wide"
-)
-
-# --- 2. التصميم الفاخر (UI/UX) ---
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
-html, body, [class*="css"] {
-    font-family: 'Cairo', sans-serif;
-    direction: rtl;
-    text-align: right;
+/* تثبيت القائمة الجانبية تماماً ومنع حركتها */
+[data-testid="stSidebar"] {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    height: 100vh !important;
+    width: 280px !important;
+    z-index: 99999 !important;
+    background-color: #0b0f19 !important;
+    border-left: 1px solid #1e293b;
+    box-shadow: none !important;
+    transform: none !important;
 }
-.stApp {
-    background: linear-gradient(135deg, #090d16 0%, #111827 100%);
-    color: #f3f4f6;
+
+/* إخفاء زرار طي/فتح القائمة الجانبية عشان تفضل ثابتة لا تتحرك أبداً */
+[data-testid="collapsedControl"] {
+    display: none !important;
 }
-.hero-header {
-    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-    padding: 25px;
-    border-radius: 20px;
-    color: white;
-    text-align: center;
-    margin-bottom: 20px;
-    box-shadow: 0 20px 25px -5px rgba(30, 58, 138, 0.3);
-    border: 1px solid #3b82f6;
-}
-.stTextInput input, .stSelectbox select {
-    background-color: #0f172a !important;
-    color: #ffffff !important;
-    border-radius: 12px !important;
-    border: 1px solid #475569 !important;
-    padding: 10px !important;
-}
-.stButton button {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-    color: white !important;
-    border-radius: 12px !important;
-    font-weight: 700 !important;
-    border: none !important;
-    padding: 12px 28px !important;
-    width: 100%;
+
+/* ضبط المساحة الرئيسية للشاشة عشان ما تتداخلش مع القائمة الثابتة */
+.main .block-container {
+    padding-right: 310px !important;
+    padding-left: 2rem !important;
+    max-width: 100% !important;
 }
 </style>
 """, unsafe_allow_html=True)
