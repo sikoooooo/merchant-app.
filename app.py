@@ -170,23 +170,29 @@ def process_command_ai(text: str):
 
 def post_journal_entry(category, amount, description):
     try:
-        # جلب الحسابات وربطها بأكوادها الحقيقية بدقة تامة
-        accounts = supabase.table("chart_of_accounts").select("id, account_code").execute().data
-        acc_map = {acc["account_code"]: acc["id"] for acc in accounts}
+        # جلب جميع الحسابات من جدول chart_of_accounts
+        accounts = supabase.table("chart_of_accounts").select("id, account_code, account_name").execute().data
+        
+        # إنشاء قاموس ذكي (Mapping) يربط الكود أو الاسم بالـ ID الحقيقي في الداتا بيز
+        acc_map = {}
+        for acc in accounts:
+            acc_map[str(acc.get("account_code"))] = acc.get("id")
+            acc_map[str(acc.get("account_name"))] = acc.get("id")
+            
     except Exception as e:
         print(f"Error fetching accounts: {e}")
         return False
 
-    # تعريف الأكواد الثابتة بناءً على دليل الحسابات الذي أنشأناه
-    id_cash = acc_map.get("110301")       # النقدية / المدينون
-    id_sales = acc_map.get("410101")      # المبيعات الآجلة / الإيرادات
-    id_expense = acc_map.get("510101")    # المصروفات الإدارية والتشغيلية والدعاية
+    # التقاط الـ IDs الحقيقية ديناميكياً بناءً على ما هو موجود فعلياً في الجدول
+    id_cash = acc_map.get("110301") or acc_map.get("المدينون (حسابات القبض)") or 1
+    id_sales = acc_map.get("410101") or acc_map.get("المبيعات الآجلة") or 4
+    id_expense = acc_map.get("510101") or acc_map.get("المصروفات الإدارية والعمومية") or 5
     
+    # لو التصنيف "مصاريف دعاية وإعلان"، ممكن نوجهه على حساب المصروفات أو نخليه يروح للصح
     entry_id = str(uuid.uuid4())
     
-    # توجيه قيود اليومية حسب التصنيف الدقيق
     if category == "مبيعات":
-        # من ح/ النقدية (مدين) إلى ح/ المبيعات (دائن)
+        # من ح/ النقدية أو المدينون (مدين) إلى ح/ المبيعات (دائن)
         journal_data = [
             {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_sales, "debit": 0.00, "credit": amount, "description": description}
