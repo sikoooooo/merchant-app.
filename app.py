@@ -35,12 +35,11 @@ html, body, [class*="css"] {
     box-shadow: 0 20px 25px -5px rgba(30, 58, 138, 0.3);
     border: 1px solid #3b82f6;
 }
-.stTextInput input, .stSelectbox select {
+.stTextInput input, .stSelectbox select, .stMultiSelect div {
     background-color: #0f172a !important;
     color: #ffffff !important;
     border-radius: 12px !important;
     border: 1px solid #475569 !important;
-    padding: 10px !important;
 }
 .stButton button {
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
@@ -67,6 +66,14 @@ API_KEYS = [
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 USER_ID = "855633fe-a3a8-400d-a9ae-9fe439e658bd"
+
+ALL_AVAILABLE_PERMISSIONS = [
+    "تسجيل مبيعات",
+    "استعلام عن الأسعار",
+    "متابعة وجرد المخازن",
+    "تسجيل المصاريف",
+    "متابعة التقارير المالية"
+]
 
 def search_item_price(query_text: str, branch: str):
     try:
@@ -179,12 +186,11 @@ if "logged_in" not in st.session_state:
     st.session_state.user_name = ""
     st.session_state.branch = ""
 
-# تهيئة قائمة الموظفين في الذاكرة لتعديل الصلاحيات ديناميكياً
 if "employees_list" not in st.session_state:
     st.session_state.employees_list = [
-        {"id": 1, "name": "محمود", "role": "موظف مبيعات", "branch": "الفرع الرئيسي (القاهرة)", "permission": "تسجيل مبيعات واستعلام"},
-        {"id": 2, "name": "إسلام", "role": "مسؤول مخازن", "branch": "الفرع الرئيسي (القاهرة)", "permission": "جرد ومتابعة مخزن"},
-        {"id": 3, "name": "خالد", "role": "موظف مبيعات", "branch": "فرع الإسكندرية", "permission": "تسجيل مبيعات واستعلام فرع الإسكندرية"}
+        {"id": 1, "name": "محمود", "role": "موظف مبيعات", "branch": "الفرع الرئيسي (القاهرة)", "permissions": ["تسجيل مبيعات", "استعلام عن الأسعار"]},
+        {"id": 2, "name": "إسلام", "role": "مسؤول مخازن", "branch": "الفرع الرئيسي (القاهرة)", "permissions": ["متابعة وجرد المخازن"]},
+        {"id": 3, "name": "خالد", "role": "موظف مبيعات", "branch": "فرع الإسكندرية", "permissions": ["تسجيل مبيعات", "استعلام عن الأسعار"]}
     ]
 
 if not st.session_state.logged_in:
@@ -248,35 +254,36 @@ else:
     if st.session_state.role == "admin":
         st.subheader("👑 لوحة تحكم الإدارة العليا (صاحب المؤسسة)")
         
-        # قائمة ديناميكية تفاعلية لإدارة وتعديل صلاحيات الموظفين الحاليين
-        with st.expander("🛠️ إدارة وتعديل صلاحيات موظفي الفروع الحاليين", expanded=True):
-            st.write("يمكنك تعديل صلاحية أو فرع أي موظف حالي، أو إضافة موظف جديد:")
+        # قائمة ديناميكية تفاعلية لإدارة الموظفين مع Multi-select للصلاحيات
+        with st.expander("🛠️ إدارة وصلاحيات موظفي الفروع (قائمة متعددة الاختيارات)", expanded=True):
+            st.write("تحكم في بيانات الموظفين وفروعهم وصلاحياتهم بدقة من خلال القوائم المنسدلة:")
             
-            # جدول تفاعلي لتعديل الموظفين الحاليين
             for i, emp in enumerate(st.session_state.employees_list):
                 with st.container():
-                    cols = st.columns([2, 2, 2, 1])
+                    cols = st.columns([2, 2, 3, 1])
                     with cols[0]:
                         new_name = st.text_input(f"اسم {i}", value=emp["name"], key=f"name_{i}")
                     with cols[1]:
                         new_branch = st.selectbox(f"فرع {i}", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], index=0 if emp["branch"]=="الفرع الرئيسي (القاهرة)" else 1, key=f"br_{i}")
                     with cols[2]:
-                        new_perm = st.text_input(f"صلاحية {i}", value=emp["permission"], key=f"perm_{i}")
+                        # الصلاحيات بصيغة Multi-select
+                        default_perms = [p for p in emp["permissions"] if p in ALL_AVAILABLE_PERMISSIONS]
+                        new_perms = st.multiselect(f"صلاحيات {i}", options=ALL_AVAILABLE_PERMISSIONS, default=default_perms, key=f"perms_{i}")
                     with cols[3]:
                         st.write("")
                         if st.button("💾 حفظ", key=f"save_{i}"):
                             st.session_state.employees_list[i]["name"] = new_name
                             st.session_state.employees_list[i]["branch"] = new_branch
-                            st.session_state.employees_list[i]["permission"] = new_perm
-                            st.success(f"تم تحديث بيانات {new_name} بنجاح!")
+                            st.session_state.employees_list[i]["permissions"] = new_perms
+                            st.success(f"تم تحديث بيانات وصلاحيات {new_name} بنجاح!")
                             st.rerun()
                 st.markdown("---")
 
-            # إضافة موظف جديد
-            st.markdown("#### ➕ إضافة موظف جديد للقائمة")
+            # إضافة موظف جديد بصلاحيات متعددة
+            st.markdown("#### ➕ إضافة موظف جديد")
             new_emp_name = st.text_input("اسم الموظف الجديد:", placeholder="مثال: أحمد محمد")
             new_emp_branch = st.selectbox("تعيين للفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="new_branch_add")
-            new_emp_perm = st.text_input("تحديد الصلاحية:", value="تسجيل مبيعات واستعلام")
+            new_emp_perms = st.multiselect("اختر الصلاحيات الممنوحة:", options=ALL_AVAILABLE_PERMISSIONS, default=["تسجيل مبيعات", "استعلام عن الأسعار"], key="new_perms_add")
             
             if st.button("✨ إضافة واعتماد الموظف"):
                 if new_emp_name:
@@ -286,9 +293,9 @@ else:
                         "name": new_emp_name,
                         "role": "موظف مبيعات",
                         "branch": new_emp_branch,
-                        "permission": new_emp_perm
+                        "permissions": new_emp_perms
                     })
-                    st.success(f"تمت إضافة الموظف {new_emp_name} بنجاح!")
+                    st.success(f"تمت إضافة الموظف {new_emp_name} وصلاحياته بنجاح!")
                     st.rerun()
                 else:
                     st.error("يرجى كتابة اسم الموظف.")
