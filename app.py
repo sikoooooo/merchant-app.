@@ -172,73 +172,129 @@ def post_journal_entry(tx_type, category, amount, description):
     supabase.table("journal_entries").insert(journal_data).execute()
     return True
 
-# --- 4. واجهة الاستخدام مع الفروع والموظفين ---
+# --- 4. تقسيم التطبيق لشاشات (الإدارة العليا Vs شاشة الموظفين) ---
 st.markdown("""
 <div class="hero-header">
-    <h1>🏢 المحاسب الذكي - إدارة الفروع والموظفين</h1>
-    <p>النظام المالي الموحد لمتابعة حركة المبيعات، المشتريات، واستعلامات المخزن لكل فرع</p>
+    <h1>💎 المحاسب الذكي - النظام الموحد للفروع</h1>
+    <p>إدارة الحسابات الشاملة والمبيعات للفروع المتعددة</p>
 </div>
 """, unsafe_allow_html=True)
 
-# شريط إعدادات الفرع والموظف في الأعلى
-col1, col2 = st.columns(2)
-with col1:
-    selected_branch = st.selectbox("📍 اختر الفرع الحالي:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
-with col2:
-    selected_employee = st.selectbox("👤 اسم الموظف المسؤول:", ["أحمد (مدير الفرع)", "محمود (مبيعات)", "إسلام (مخازن)"])
+app_mode = st.sidebar.radio("اختر لوحة التحكم:", ["👑 لوحة تحكم الإدارة (صاحب الشركة)", "👤 بوابة تسجيل الموظفين (الكاشير / المبيعات)"])
 
-st.markdown("---")
+if app_mode == "👑 لوحة تحكم الإدارة (صاحب الشركة)":
+    st.subheader("🛠️ إعدادات الإدارة العليا ومتابعة الفروع")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        selected_branch = st.selectbox("📍 اختر الفرع للمتابعة:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
+    with col2:
+        selected_employee = st.selectbox("👤 المشرف / المعتمد:", ["أحمد (مدير الفرع)", "إدارة عامة"])
 
-voice_input = st.text_input("✍️ أدخل المعاملة أو الاستعلام:", placeholder="مثال: كرتونة البيض بكام؟ أو بعنا 10 كراتين بـ 120", label_visibility="collapsed")
+    st.markdown("---")
+    voice_input = st.text_input("✍️ أدخل معاملة إدارية أو استعلام عام:", placeholder="مثال: كرتونة البيض بكام؟ أو شراء أصل بـ 50000", key="admin_input")
 
-if st.button("🚀 تنفيذ الطلب"):
-    if voice_input:
-        with st.spinner("✨ جاري معالجة الطلب وترحيله للفرع المحدد..."):
-            data = process_command_ai(voice_input)
-            
-            if data.get("type") == "QUERY":
-                found_item = search_item_price(voice_input, selected_branch)
-                if found_item:
-                    st.markdown(f"""
-                    <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid #3b82f6; padding: 16px; border-radius: 14px; margin-top: 15px;">
-                        <p style="margin: 0; color: #f3f4f6; font-size: 16px; font-weight: bold; text-align: center;">
-                            🔍 ({selected_branch}) - آخر حركة لـ ({found_item.get('item_or_person')}): الإجمالي ({found_item.get('amount')} ج.م) | بواسطة: ({found_item.get('employee', 'غير محدد')})
-                        </p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.warning(f"⚠️ عذراً، لم أجد تسجيلًا لهذا الصنف في {selected_branch}.")
-            else:
-                amt = data.get("amount", 0)
-                tx_type = data.get("type", "EXPENSE")
-                tx_category = data.get("category", "مصاريف تشغيلية")
-                item = data.get("item_or_person", voice_input)
-                qty = data.get("quantity", 1)
+    if st.button("🚀 تنفيذ الطلب (إدارة)", key="admin_btn"):
+        if voice_input:
+            with st.spinner("✨ جاري معالجة الطلب..."):
+                data = process_command_ai(voice_input)
                 
-                if amt == 0:
-                    st.error("⚠️ عذراً، لم أستطع تحديد المبلغ. من فضلك أدخل المبلغ أو السعر بوضوح.")
+                if data.get("type") == "QUERY":
+                    found_item = search_item_price(voice_input, selected_branch)
+                    if found_item:
+                        st.markdown(f"""
+                        <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid #3b82f6; padding: 16px; border-radius: 14px; margin-top: 15px;">
+                            <p style="margin: 0; color: #f3f4f6; font-size: 16px; font-weight: bold; text-align: center;">
+                                🔍 ({selected_branch}) - آخر حركة لـ ({found_item.get('item_or_person')}): الإجمالي ({found_item.get('amount')} ج.م)
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.warning(f"⚠️ عذراً، لم أجد تسجيلاً لهذا الصنف في {selected_branch}.")
                 else:
-                    supabase.table("transactions").insert({
-                        "type": tx_type,
-                        "item_or_person": item,
-                        "quantity": qty,
-                        "amount": amt,
-                        "raw_text": voice_input,
-                        "created_by_user_id": USER_ID,
-                        "category": tx_category,
-                        "branch": selected_branch,
-                        "employee": selected_employee
-                    }).execute()
+                    amt = data.get("amount", 0)
+                    tx_type = data.get("type", "EXPENSE")
+                    tx_category = data.get("category", "مصاريف تشغيلية")
+                    item = data.get("item_or_person", voice_input)
+                    qty = data.get("quantity", 1)
                     
-                    post_journal_entry(tx_type, tx_category, amt, voice_input)
+                    if amt == 0:
+                        st.error("⚠️ عذراً، لم أستطع تحديد المبلغ.")
+                    else:
+                        supabase.table("transactions").insert({
+                            "type": tx_type,
+                            "item_or_person": item,
+                            "quantity": qty,
+                            "amount": amt,
+                            "raw_text": voice_input,
+                            "created_by_user_id": USER_ID,
+                            "category": tx_category,
+                            "branch": selected_branch,
+                            "employee": selected_employee
+                        }).execute()
+                        
+                        post_journal_entry(tx_type, tx_category, amt, voice_input)
+                        st.success(f"✅ تم التسجيل بنجاح في {selected_branch} بقيمة {amt} ج.م")
+
+else:
+    st.subheader("👤 شاشة تسجيل الموظفين (المبيعات وحركة اليومية)")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        emp_branch = st.selectbox("📍 فرعك الحالي:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="emp_b")
+    with col2:
+        emp_name = st.selectbox("👤 اسمك كـ موظف:", ["محمود (مبيعات القاهرة)", "إسلام (مخازن القاهرة)", "خالد (مبيعات الإسكندرية)"], key="emp_n")
+
+    st.markdown("---")
+    emp_input = st.text_input("✍️ سجل عملية البيع أو اسأل عن سعر صنف:", placeholder="مثال: بعنا 5 كراتين بـ 600 أو كرتونة البيض بكام؟", key="emp_input")
+
+    if st.button("🚀 تسجيل البيعة / الاستعلام", key="emp_btn"):
+        if emp_input:
+            with st.spinner("✨ جاري تسجيل العملية لفرعك..."):
+                data = process_command_ai(emp_input)
+                
+                if data.get("type") == "QUERY":
+                    found_item = search_item_price(emp_input, emp_branch)
+                    if found_item:
+                        st.markdown(f"""
+                        <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid #10b981; padding: 16px; border-radius: 14px; margin-top: 15px;">
+                            <p style="margin: 0; color: #f3f4f6; font-size: 16px; font-weight: bold; text-align: center;">
+                                🔍 السعر في فرعك ({emp_branch}): الصنف ({found_item.get('item_or_person')}) | الإجمالي: ({found_item.get('amount')} ج.م)
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.warning("⚠️ عذراً، هذا الصنف غير مسجل في فروعنا.")
+                else:
+                    amt = data.get("amount", 0)
+                    tx_type = data.get("type", "INCOME")
+                    tx_category = data.get("category", "مبيعات")
+                    item = data.get("item_or_person", emp_input)
+                    qty = data.get("quantity", 1)
                     
-                    border_color = "#10b981" if tx_type == "INCOME" else "#f59e0b"
-                    st.markdown(f"""
-                    <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid {border_color}; padding: 16px; border-radius: 14px; margin-top: 15px;">
-                        <p style="margin: 0; color: #f3f4f6; font-size: 16px; font-weight: bold; text-align: center;">
-                            ✅ تم التسجيل بـ {selected_branch} بواسطة ({selected_employee}) | ({tx_category}) | الإجمالي: ({amt} ج.م)!
-                        </p>
-                    </div>
-                    """, unsafe_allow_html=True)
-    else:
-        st.error("الرجاء كتابة العملية أو الاستعلام أولاً.")
+                    if amt == 0:
+                        st.error("⚠️ عذراً، يرجى كتابة المبلغ أو السعر بوضوح.")
+                    else:
+                        supabase.table("transactions").insert({
+                            "type": tx_type,
+                            "item_or_person": item,
+                            "quantity": qty,
+                            "amount": amt,
+                            "raw_text": emp_input,
+                            "created_by_user_id": USER_ID,
+                            "category": tx_category,
+                            "branch": emp_branch,
+                            "employee": emp_name
+                        }).execute()
+                        
+                        post_journal_entry(tx_type, tx_category, amt, emp_input)
+                        
+                        st.markdown(f"""
+                        <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid #10b981; padding: 16px; border-radius: 14px; margin-top: 15px;">
+                            <p style="margin: 0; color: #f3f4f6; font-size: 16px; font-weight: bold; text-align: center;">
+                                ✅ تم تسجيل المبيعات بنجاح باسم ({emp_name}) في ({emp_branch}) بمبلغ ({amt} ج.م)!
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+        else:
+            st.error("الرجاء كتابة تفاصيل البيعة أو الاستعلام.")
