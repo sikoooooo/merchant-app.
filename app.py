@@ -247,11 +247,21 @@ with tab1:
                 
                 if intent == "ADD_TRANSACTION":
                     amt = data.get("amount", 0)
-                    tx_type = data.get("type", "EXPENSE")
-                    tx_category = data.get("category", "مصاريف تشغيلية")
+                    
+                    # تصحيح ذكي قاطع للشك باليقين بناءً على النص المدخل
+                    is_sale_text = any(w in voice_input for w in ["بيع", "بعت", "باع", "قبضت", "مبيعات"])
+                    
+                    if is_sale_text:
+                        tx_type = "INCOME"
+                        tx_category = "مبيعات"
+                    else:
+                        tx_type = data.get("type", "EXPENSE")
+                        tx_category = data.get("category", "مصاريف تشغيلية")
+                        
                     item = data.get("item_or_person", "عام")
                     qty = data.get("quantity", 1)
                     
+                    # حفظ المعاملة في الجدول بالبيانات المصححة تماماً
                     supabase.table("transactions").insert({
                         "type": tx_type,
                         "item_or_person": item,
@@ -262,6 +272,7 @@ with tab1:
                         "category": tx_category
                     }).execute()
                     
+                    # ترحيل القيد المحاسبي المزدوج بدقة
                     post_journal_entry(tx_category, amt, voice_input)
                     
                     if tx_type == "INCOME":
@@ -275,14 +286,6 @@ with tab1:
                         <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid {border_color}; padding: 16px; border-radius: 14px; margin-top: 15px;">
                             <p style="margin: 0; color: #f3f4f6; font-size: 15px; font-weight: bold; text-align: center;">{confirm_msg}</p>
                         </div>
-                    """, unsafe_allow_html=True)
-                    
-                    st.markdown(f"""
-                        <script>
-                            const speech = new SpeechSynthesisUtterance("{confirm_msg}");
-                            speech.lang = 'ar-EG';
-                            window.speechSynthesis.speak(speech);
-                        </script>
                     """, unsafe_allow_html=True)
                 else:
                     st.warning("⚠️ عذراً، لم أستطع فهم العملية بدقة. جرب صياغة أبسط.")
