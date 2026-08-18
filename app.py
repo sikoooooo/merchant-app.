@@ -170,23 +170,29 @@ def process_command_ai(text: str):
 
 def post_journal_entry(category, amount, description):
     try:
+        # جلب الحسابات وربطها بأكوادها الحقيقية بدقة تامة
         accounts = supabase.table("chart_of_accounts").select("id, account_code").execute().data
         acc_map = {acc["account_code"]: acc["id"] for acc in accounts}
-    except:
+    except Exception as e:
+        print(f"Error fetching accounts: {e}")
         return False
 
-    id_cash = acc_map.get("110301")       
-    id_sales = acc_map.get("410101")      
-    id_expense = acc_map.get("510101")    
+    # تعريف الأكواد الثابتة بناءً على دليل الحسابات الذي أنشأناه
+    id_cash = acc_map.get("110301")       # النقدية / المدينون
+    id_sales = acc_map.get("410101")      # المبيعات الآجلة / الإيرادات
+    id_expense = acc_map.get("510101")    # المصروفات الإدارية والتشغيلية والدعاية
     
     entry_id = str(uuid.uuid4())
     
+    # توجيه قيود اليومية حسب التصنيف الدقيق
     if category == "مبيعات":
+        # من ح/ النقدية (مدين) إلى ح/ المبيعات (دائن)
         journal_data = [
             {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_sales, "debit": 0.00, "credit": amount, "description": description}
         ]
     else:
+        # لأي مصروف (تشغيلي، إداري، أو دعاية وإعلان): من ح/ المصروفات إلى ح/ النقدية
         journal_data = [
             {"entry_id": entry_id, "account_id": id_expense, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_cash, "debit": 0.00, "credit": amount, "description": description}
@@ -194,7 +200,6 @@ def post_journal_entry(category, amount, description):
         
     supabase.table("journal_entries").insert(journal_data).execute()
     return True
-
 # --- 4. واجهة المستخدم ---
 st.markdown("""
     <div class="hero-header">
