@@ -7,8 +7,8 @@ from supabase import create_client, Client
 
 # --- 1. إعدادات الصفحة الاحترافية ---
 st.set_page_config(
-    page_title="المحاسب الذكي - Pro",
-    page_icon="💎",
+    page_title="المحاسب الذكي - Multi-Branch Pro",
+    page_icon="🏢",
     layout="wide"
 )
 
@@ -26,20 +26,21 @@ html, body, [class*="css"] {
     color: #f3f4f6;
 }
 .hero-header {
-    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-    padding: 30px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    padding: 25px;
     border-radius: 20px;
     color: white;
     text-align: center;
-    margin-bottom: 25px;
-    box-shadow: 0 20px 25px -5px rgba(59, 130, 246, 0.2);
+    margin-bottom: 20px;
+    box-shadow: 0 20px 25px -5px rgba(30, 58, 138, 0.3);
+    border: 1px solid #3b82f6;
 }
-.stTextInput input {
+.stTextInput input, .stSelectbox select {
     background-color: #0f172a !important;
     color: #ffffff !important;
     border-radius: 12px !important;
     border: 1px solid #475569 !important;
-    padding: 12px !important;
+    padding: 10px !important;
 }
 .stButton button {
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
@@ -67,9 +68,9 @@ API_KEYS = [
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 USER_ID = "855633fe-a3a8-400d-a9ae-9fe439e658bd"
 
-def search_item_price(query_text: str):
+def search_item_price(query_text: str, branch: str):
     try:
-        response = supabase.table("transactions").select("*").order("created_at", desc=True).limit(50).execute()
+        response = supabase.table("transactions").select("*").eq("branch", branch).order("created_at", desc=True).limit(50).execute()
         rows = response.data
         query_words = [w for w in query_text.split() if len(w) > 2 and w not in ["بكام", "سعر", "عندنا", "كام", "في", "ال"]]
         for row in rows:
@@ -88,7 +89,6 @@ def process_command_ai(text: str):
     if is_query:
         return {"type": "QUERY", "query_text": text}
 
-    data = None
     income_keywords = ["بيع", "بعت", "بعنا", "باع", "مبيعات", "قبضت", "قبضنا", "حصلنا", "توريد"]
     is_sale = any(w in text for w in income_keywords)
     
@@ -98,9 +98,9 @@ def process_command_ai(text: str):
             system_instruction = """
             أنت محاسب ذكي وخبير في تجارة الجملة والمفرد باللهجة العامية المصرية.
             قواعد التصنيف الدقيقة:
-            1. type: INCOME لو المعاملة بيع او قبض، EXPENSE لو شراء او مصاريف.
+            1. type: INCOME لو المعاملة بيع أو قبض، EXPENSE لو شراء أو مصاريف.
             2. category: حدد حصريا التصنيف من: مبيعات، مشتريات وبضاعة، أصول ثابتة، مصاريف تشغيلية، مصاريف دعاية وإعلان، مصاريف إدارية ورواتب.
-            3. item_or_person: اسم الصنف او البيان.
+            3. item_or_person: اسم الصنف أو البيان.
             4. quantity: الكمية الرقمية أو 1.
             5. amount: المبلغ الاجمالي النهائي للعملية.
             أجب بصيغة JSON نقي فقط بدون أي نص خارجي وبدون علامات الـ markdown.
@@ -172,33 +172,42 @@ def post_journal_entry(tx_type, category, amount, description):
     supabase.table("journal_entries").insert(journal_data).execute()
     return True
 
-# --- 4. واجهة الاستخدام ---
+# --- 4. واجهة الاستخدام مع الفروع والموظفين ---
 st.markdown("""
 <div class="hero-header">
-    <h1>💎 المحاسب الذكي - النظام المطور</h1>
-    <p>تحليل فوري للمعاملات التجارية، استعلامات الأسعار، وترحيل آلي للدفاتر</p>
+    <h1>🏢 المحاسب الذكي - إدارة الفروع والموظفين</h1>
+    <p>النظام المالي الموحد لمتابعة حركة المبيعات، المشتريات، واستعلامات المخزن لكل فرع</p>
 </div>
 """, unsafe_allow_html=True)
 
-voice_input = st.text_input("أدخل المعاملة أو الاستعلام:", placeholder="مثال: كرتونة البيض بكام؟ أو بعنا 10 كراتين بـ 120", label_visibility="collapsed")
+# شريط إعدادات الفرع والموظف في الأعلى
+col1, col2 = st.columns(2)
+with col1:
+    selected_branch = st.selectbox("📍 اختر الفرع الحالي:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
+with col2:
+    selected_employee = st.selectbox("👤 اسم الموظف المسؤول:", ["أحمد (مدير الفرع)", "محمود (مبيعات)", "إسلام (مخازن)"])
+
+st.markdown("---")
+
+voice_input = st.text_input("✍️ أدخل المعاملة أو الاستعلام:", placeholder="مثال: كرتونة البيض بكام؟ أو بعنا 10 كراتين بـ 120", label_visibility="collapsed")
 
 if st.button("🚀 تنفيذ الطلب"):
     if voice_input:
-        with st.spinner("✨ جاري معالجة الطلب..."):
+        with st.spinner("✨ جاري معالجة الطلب وترحيله للفرع المحدد..."):
             data = process_command_ai(voice_input)
             
             if data.get("type") == "QUERY":
-                found_item = search_item_price(voice_input)
+                found_item = search_item_price(voice_input, selected_branch)
                 if found_item:
                     st.markdown(f"""
                     <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid #3b82f6; padding: 16px; border-radius: 14px; margin-top: 15px;">
                         <p style="margin: 0; color: #f3f4f6; font-size: 16px; font-weight: bold; text-align: center;">
-                            🔍 وجدنا آخر حركة لـ ({found_item.get('item_or_person')}): الإجمالي ({found_item.get('amount')} ج.م) | الكمية: ({found_item.get('quantity')})
+                            🔍 ({selected_branch}) - آخر حركة لـ ({found_item.get('item_or_person')}): الإجمالي ({found_item.get('amount')} ج.م) | بواسطة: ({found_item.get('employee', 'غير محدد')})
                         </p>
                     </div>
                     """, unsafe_allow_html=True)
                 else:
-                    st.warning("⚠️ عذراً، لم أجد تسجيلاً سابقاً لهذا الصنف في قاعدة البيانات.")
+                    st.warning(f"⚠️ عذراً، لم أجد تسجيلًا لهذا الصنف في {selected_branch}.")
             else:
                 amt = data.get("amount", 0)
                 tx_type = data.get("type", "EXPENSE")
@@ -216,7 +225,9 @@ if st.button("🚀 تنفيذ الطلب"):
                         "amount": amt,
                         "raw_text": voice_input,
                         "created_by_user_id": USER_ID,
-                        "category": tx_category
+                        "category": tx_category,
+                        "branch": selected_branch,
+                        "employee": selected_employee
                     }).execute()
                     
                     post_journal_entry(tx_type, tx_category, amt, voice_input)
@@ -225,7 +236,7 @@ if st.button("🚀 تنفيذ الطلب"):
                     st.markdown(f"""
                     <div style="background: rgba(15, 23, 42, 0.95); border: 2px solid {border_color}; padding: 16px; border-radius: 14px; margin-top: 15px;">
                         <p style="margin: 0; color: #f3f4f6; font-size: 16px; font-weight: bold; text-align: center;">
-                            ✅ تم بنجاح تسجيل ({tx_category}) | البيان: ({item}) | الكمية: ({qty}) | الإجمالي: ({amt} ج.م)!
+                            ✅ تم التسجيل بـ {selected_branch} بواسطة ({selected_employee}) | ({tx_category}) | الإجمالي: ({amt} ج.م)!
                         </p>
                     </div>
                     """, unsafe_allow_html=True)
