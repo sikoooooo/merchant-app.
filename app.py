@@ -169,35 +169,26 @@ def process_command_ai(text: str):
         }
 
 def post_journal_entry(category, amount, description):
-    try:
-        accounts = supabase.table("chart_of_accounts").select("id, account_code, account_name").execute().data
-        acc_map = {acc.get("account_name"): acc.get("id") for acc in accounts}
-        # خريطة أكواد بديلة
-        code_map = {acc.get("account_code"): acc.get("id") for acc in accounts}
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
-
-    # جلب الـ IDs الحقيقية بناءً على الأسماء والأكواد
-    id_cash = code_map.get("110301") or acc_map.get("المدينون (حسابات القبض)") or 1
-    id_sales = code_map.get("410101") or acc_map.get("المبيعات الآجلة") or 4
-    
-    # تحديد حساب المصروف المناسب حسب التصنيف اللي طلعه الذكاء الاصطناعي
-    if "دعاية" in category:
-        id_expense = acc_map.get("مصاريف دعاية وإعلان") or code_map.get("510102") or 5
-    else:
-        id_expense = code_map.get("510101") or acc_map.get("المصروفات الإدارية والعمومية") or 5
-
     entry_id = str(uuid.uuid4())
     
+    # حل نهائي ومباشر بدون لف دوران:
+    # حساب النقدية/المدينون دائماً الـ ID بتاعه = 1 (حسب جدولك)
+    id_cash = 1
+    
+    # تحديد رقم الحساب المالي مباشرة حسب التصنيف
     if category == "مبيعات":
+        id_target = 4  # حساب المبيعات
+        # مبيعات: المدين نقدية (1) ، الدائن مبيعات (4)
         journal_data = [
             {"entry_id": entry_id, "account_id": id_cash, "debit": amount, "credit": 0.00, "description": description},
-            {"entry_id": entry_id, "account_id": id_sales, "debit": 0.00, "credit": amount, "description": description}
+            {"entry_id": entry_id, "account_id": id_target, "debit": 0.00, "credit": amount, "description": description}
         ]
     else:
+        # لأي مصروف (دعاية، تشغيلي، إداري): هيروح على حساب المصروفات (5)
+        id_target = 5  # حساب المصروفات / الدعاية
+        # مصروفات: المدين مصروفات (5) ، الدائن نقدية (1)
         journal_data = [
-            {"entry_id": entry_id, "account_id": id_expense, "debit": amount, "credit": 0.00, "description": description},
+            {"entry_id": entry_id, "account_id": id_target, "debit": amount, "credit": 0.00, "description": description},
             {"entry_id": entry_id, "account_id": id_cash, "debit": 0.00, "credit": amount, "description": description}
         ]
         
