@@ -106,19 +106,13 @@ def process_command_ai(text: str):
     key = API_KEYS[0]
     genai.configure(api_key=key)
     
-    # فحص ذكي محلي قاطع للشك باليقين
-    is_sale = any(w in text for w in ["بيع", "بعت", "باع", "قبضت", "مبيعات", "بضاع"])
-    is_ads = any(w in text for w in ["دعاية", "إعلان", "اعلانات", "فيسبوك", "تويتر", "تسويق", "ممول", "حملة"])
-    is_admin = any(w in text for w in ["مرتب", "راتب", "أجور", "أجرة", "مكتبية", "أدوات مكتبية", "رسوم"])
-    
     system_instruction = """
-    أنت نظام محاسبي ذكي وخبير مالي مدرب على المعايير المحاسبية.
-    مهمتك تحليل أي نص تجاري يدخله المستخدم وتصنيف الـ category بدقة شديدة إلى:
-    - "مبيعات"
-    - "مصاريف تشغيلية"
-    - "مصاريف إدارية"
-    - "مصاريف دعاية وإعلان"
-    أجب بصيغة JSON فقط بدون أي نص إضافي.
+    أنت نظام محاسبي آلي محترف. مهمتك تحليل نص المعاملة التجارية واستخراج:
+    1. type: حصرياً "INCOME" لو المعاملة فيها بيع، قبض، إيراد، أو تحصيل. وحصرياً "EXPENSE" لو فيها شراء، مصروف، إيجار، دعاية، أو سداد.
+    2. category: تصنيف دقيق من ضمن (مبيعات، مصاريف تشغيلية، مصاريف دعاية وإعلان، مصاريف إدارية).
+    3. item_or_person: اسم الصنف أو البيان الصافي.
+    4. amount: المبلغ الرقمي المستخلص بدقة.
+    أجب بصيغة JSON فقط.
     """
     
     model = genai.GenerativeModel(
@@ -126,20 +120,7 @@ def process_command_ai(text: str):
         system_instruction=system_instruction
     )
     
-    prompt = f"""
-    حلل النص الآتي واستخرج الحقول المطلوبة:
-    النص: "{text}"
-    
-    أجب فقط بصيغة JSON التالية:
-    {{
-        "intent": "ADD_TRANSACTION",
-        "type": "INCOME أو EXPENSE",
-        "category": "مبيعات أو مصاريف تشغيلية أو مصاريف إدارية أو مصاريف دعاية وإعلان",
-        "item_or_person": "اسم الصنف أو الخدمة الصافي المستخلص",
-        "quantity": 1,
-        "amount": 0
-    }}
-    """
+    prompt = f"حلل المعاملة التجارية التالية وأجب بصيغة JSON فقط: '{text}'"
     
     try:
         res = model.generate_content(prompt)
@@ -151,54 +132,25 @@ def process_command_ai(text: str):
         
         data = json.loads(raw_text)
         
-        # تصحيح قاطع محلياً لو الذكاء الاصطناعي لخبط
-        if is_sale:
-            data["type"] = "INCOME"
-            data["category"] = "مبيعات"
-        elif is_ads:
-            data["type"] = "EXPENSE"
-            data["category"] = "مصاريف دعاية وإعلان"
-        elif is_admin:
-            data["type"] = "EXPENSE"
-            data["category"] = "مصاريف إدارية"
-        else:
-            data["type"] = "EXPENSE"
-            if not data.get("category") or data.get("category") not in ["مصاريف تشغيلية", "مصاريف إدارية", "مصاريف دعاية وإعلان", "مبيعات"]:
-                data["category"] = "مصاريف تشغيلية"
-            
+        # التأكد من استخلاص المبلغ لو الـ AI نسيه
         if not data.get("amount") or data.get("amount") == 0:
             numbers = re.findall(r'\d+', text)
             if numbers:
                 data["amount"] = int(numbers[-1])
                 
         return data
-        
     except Exception:
         numbers = re.findall(r'\d+', text)
-        extracted_amount = int(numbers[-1]) if numbers else 0
-        
-        if is_sale:
-            cat = "مبيعات"
-            t_type = "INCOME"
-        elif is_ads:
-            cat = "مصاريف دعاية وإعلان"
-            t_type = "EXPENSE"
-        elif is_admin:
-            cat = "مصاريف إدارية"
-            t_type = "EXPENSE"
-        else:
-            cat = "مصاريف تشغيلية"
-            t_type = "EXPENSE"
-            
+        amt = int(numbers[-1]) if numbers else 0
+        is_sale = any(w in text for w in ["بيع", "بعت", "باع", "قبضت", "مبيعات"])
         return {
             "intent": "ADD_TRANSACTION",
-            "type": t_type,
-            "category": cat,
+            "type": "INCOME" if is_sale else "EXPENSE",
+            "category": "مبيعات" if is_sale else "مصاريف تشغيلية",
             "item_or_person": text,
             "quantity": 1,
-            "amount": extracted_amount
+            "amount": amt
         }
-
 def post_journal_entry(tx_type, category, amount, description):
     entry_id = str(uuid.uuid4())
     
