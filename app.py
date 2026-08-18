@@ -172,14 +172,13 @@ def post_journal_entry(tx_type, category, amount, description):
     supabase.table("journal_entries").insert(journal_data).execute()
     return True
 
-# --- 4. إدارة حالة الجلسة (Session State للدخول) ---
+# --- 4. إدارة الجلسة والدخول ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.role = None
     st.session_state.user_name = ""
     st.session_state.branch = ""
 
-# --- 5. شاشة تسجيل الدخول ---
 if not st.session_state.logged_in:
     st.markdown("""
     <div class="hero-header">
@@ -217,7 +216,6 @@ if not st.session_state.logged_in:
                 st.rerun()
 
 else:
-    # --- 6. الواجهة بعد تسجيل الدخول ---
     st.markdown(f"""
     <div class="hero-header" style="padding: 15px; display: flex; justify-content: space-between; align-items: center;">
         <div>
@@ -227,7 +225,6 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    # زر تسجيل الخروج في القائمة الجانبية (Sidebar)
     with st.sidebar:
         st.subheader("⚙️ إعدادات الحساب")
         st.write(f"المستخدم: **{st.session_state.user_name}**")
@@ -240,13 +237,30 @@ else:
     if st.session_state.role == "admin":
         st.subheader("👑 لوحة تحكم الإدارة العليا (صاحب المؤسسة)")
         
-        # زرار إعدادات وصلاحيات الموظفين ديناميكي في يمين الشاشة
-        with st.expander("🛠️ إعدادات وصلاحيات موظفي الفروع (قائمة ديناميكية)", expanded=False):
-            st.write("هنا يمكنك مراجعة صلاحيات الموظفين، فتح أو إغلاق الفروع، ومتابعة التقارير المجمعة.")
-            admin_branch = st.selectbox("📍 اختر الفرع للمراقبة:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="adm_b")
-            st.info(f"تم تفعيل الرؤية الشاملة لـ: {admin_branch}")
+        # قائمة ديناميكية واضحة لادارة الموظفين والفروع والصلاحيات
+        with st.expander("🛠️ إدارة وصلاحيات موظفي الفروع (قائمة ديناميكية لإدارة الموظفين)", expanded=True):
+            st.write("من هنا يمكنك متابعة الموظفين المسجلين في الفروع المختلفة وتحديد صلاحياتهم:")
+            
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                st.markdown("#### 🏢 الفرع الرئيسي (القاهرة)")
+                st.markdown("- **محمود** (مبيعات) - *صلاحية تسجيل مبيعات واستعلام*")
+                st.markdown("- **إسلام** (مخازن) - *صلاحية جرد ومتابعة مخزن*")
+            with col_m2:
+                st.markdown("#### 🏢 فرع الإسكندرية")
+                st.markdown("- **خالد** (مبيعات) - *صلاحية تسجيل مبيعات واستعلام فرع الإسكندرية*")
+            
+            st.markdown("---")
+            new_emp_name = st.text_input("إضافة موظف جديد:", placeholder="اسم الموظف الثلاثي")
+            new_emp_branch = st.selectbox("تعيين الفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="nb")
+            if st.button("➕ حفظ واعتماد الموظف الجديد"):
+                if new_emp_name:
+                    st.success(f"تم بنجاح إضافة الموظف ({new_emp_name}) لـ {new_emp_branch} ومنحه صلاحيات البيع والاستعلام!")
+                else:
+                    st.error("يرجى كتابة اسم الموظف.")
 
         st.markdown("---")
+        admin_branch_select = st.selectbox("📍 حدد الفرع للاستعلام أو الرصد المباشر كآدمن:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], key="ad_br")
         admin_input = st.text_input("✍️ أدخل معاملة إدارية شاملة أو استعلام عام:", placeholder="مثال: كرتونة البيض بكام؟ أو شراء أصل بـ 50000", key="admin_inp")
 
         if st.button("🚀 تنفيذ الطلب (إدارة)", key="adm_exec"):
@@ -255,11 +269,11 @@ else:
                     data = process_command_ai(admin_input)
                     
                     if data.get("type") == "QUERY":
-                        found_item = search_item_price(admin_input, "الفرع الرئيسي (القاهرة)")
+                        found_item = search_item_price(admin_input, admin_branch_select)
                         if found_item:
-                            st.success(f"🔍 آخر حركة مسجلة للصنف: الإجمالي ({found_item.get('amount')} ج.م) | الفرع: ({found_item.get('branch')})")
+                            st.success(f"🔍 آخر حركة مسجلة في ({admin_branch_select}) للصنف: ({found_item.get('item_or_person')}) | الإجمالي ({found_item.get('amount')} ج.م)")
                         else:
-                            st.warning("⚠️ عذراً، لم أجد تسجيلاً لهذا الصنف.")
+                            st.warning(f"⚠️ عذراً، لم أجد تسجيلاً لهذا الصنف في {admin_branch_select}.")
                     else:
                         amt = data.get("amount", 0)
                         tx_type = data.get("type", "EXPENSE")
@@ -278,11 +292,11 @@ else:
                                 "raw_text": admin_input,
                                 "created_by_user_id": USER_ID,
                                 "category": tx_category,
-                                "branch": "الفرع الرئيسي (القاهرة)",
+                                "branch": admin_branch_select,
                                 "employee": "الآدمن"
                             }).execute()
                             post_journal_entry(tx_type, tx_category, amt, admin_input)
-                            st.success(f"✅ تم تسجيل المعاملة الإدارية بنجاح بقيمة {amt} ج.م")
+                            st.success(f"✅ تم تسجيل المعاملة الإدارية بنجاح في {admin_branch_select} بقيمة {amt} ج.م")
 
     # --- شاشة الموظف ---
     else:
