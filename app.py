@@ -79,27 +79,26 @@ ALL_AVAILABLE_PERMISSIONS = [
     "متابعة التقارير المالية"
 ]
 
-# --- 5. المعالجة الذكية المدعومة بالذكاء الاصطناعي والتبديل ---
+# --- 5. المعالجة الذكية بالذكاء الاصطناعي ---
 def process_command_with_ai(text: str):
     try:
         model = get_next_gemini_model()
         prompt_instruction = f"""
-        أنت محاسب ذكي لنظام ERP مرن يدعم الأنشطة المختلفة (زيوت، أقمشة، بيض، إلخ).
-        حلل الجملة التالية واستخرج منها البيانات بتنسيق JSON حصرياً بدون أي نصوص إضافية:
+        أنت محاسب ذكي لنظام ERP مرن.
+        حلل الجملة التالية واستخرج البيانات بتنسيق JSON حصرياً بدون أي نصوص إضافية:
         "{text}"
         
-        الهيكل المطلوبة:
-        - "type": "SALE" إذا كانت بيع أو صرف، أو "PURCHASE" إذا كانت شراء أو توريد، أو "QUERY" إذا كان سؤالاً عن رصيد أو سعر.
+        الهيكل المطلوب:
+        - "type": "SALE" (للبيع أو المنصرف)، "PURCHASE" (للشراء أو الوارد)، أو "QUERY" (للاستعلام عن رصيد أو سعر).
         - "item_name": اسم الصنف.
         - "quantity": الكمية كرقم (اعتبرها 1 إن لم تذكر).
         - "unit": وحدة القياس (مثل: طن، كيلو، توب، متر، كرتونة، قطعة).
-        - "unit_price": سعر الوحدة أو الإجمالي إذا وجد.
+        - "unit_price": السعر إن وجد، وإلا 0.
         """
         response = model.generate_content(prompt_instruction)
         cleaned_text = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(cleaned_text)
     except Exception as e:
-        # احتياطي في حال حدوث خطأ بالاتصال بالذكاء الاصطناعي
         return {
             "type": "QUERY" if "كم" in text or "سعر" in text else "SALE",
             "item_name": text,
@@ -147,7 +146,7 @@ else:
             st.markdown("---")
             admin_page = st.radio(
                 "اختر القسم:",
-                ["📊 متابعة العمليات والشات الذكي", "🛠️ إدارة الموظفين والصلاحيات"]
+                ["📊 متابعة العمليات والشات الذكي", "📦 جرد ومتابعة المخزن", "🛠️ إدارة الموظفين والصلاحيات"]
             )
             st.markdown("---")
             if st.button("🚪 تسجيل الخروج"):
@@ -160,11 +159,34 @@ else:
             st.session_state.logged_in = False
             st.rerun()
 
-    if st.session_state.role == "admin" and admin_page == "🛠️ إدارة الموظفين والصلاحيات":
+    if st.session_state.role == "admin" and admin_page == "📦 جرد ومتابعة المخزن":
+        st.markdown("""
+        <div class="hero-header">
+            <h2>📦 جرد ومتابعة المخزن اللحظي</h2>
+            <p>أرصدة الأصناف والكميات الحالية متحدثة أوتوماتيكياً</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        target_branch = st.selectbox("📍 تصفية حسب الفرع:", ["الكل", "الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
+        
+        try:
+            query = supabase.table("inventory").select("*")
+            if target_branch != "الكل":
+                query = query.eq("branch", target_branch)
+            response = query.execute()
+            inventory_data = response.data
+            
+            if inventory_data:
+                st.dataframe(inventory_data, use_container_width=True)
+            else:
+                st.info("لا توجد أصناف مسجلة في المخزن حتى الآن. ابدأ بتسجيل عمليات بيع أو شراء وسيقوم السيستم بتعبئة المخزن تلقائياً!")
+        except Exception as e:
+            st.error(f"خطأ في جلب بيانات المخزن: {e}")
+
+    elif st.session_state.role == "admin" and admin_page == "🛠️ إدارة الموظفين والصلاحيات":
         st.markdown("""
         <div class="hero-header">
             <h2>🛠️ إدارة الموظفين والصلاحيات</h2>
-            <p>تعديل فروع وصلاحيات طاقم العمل</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -198,13 +220,13 @@ else:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        if prompt := st.chat_input("اكتب معاملتك هنا (مثال: بعنا 0.4 طن زيت أو 3 توب قماش)..."):
+        if prompt := st.chat_input("اكتب معاملتك هنا (مثال: اشترينا 5 طن زيت بـ 30000 أو بعنا 2 توب قماش)..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
 
             with st.chat_message("assistant"):
-                with st.spinner("🤖 جاري تحليل المعاملة بالذكاء الاصطناعي وتحديث النظام..."):
+                with st.spinner("🤖 جاري تحليل المعاملة بالذكاء الاصطناعي وتحديث المخزن والقاعدة..."):
                     data = process_command_with_ai(prompt)
                     
                     if data.get("type") == "QUERY":
@@ -228,13 +250,13 @@ else:
                             }
                             supabase.table("transactions").insert(payload).execute()
                             
-                            response_text = f"""✅ **تمت معالجة العملية وتسجيلها بنجاح ({target_branch})!**
+                            response_text = f"""✅ **تمت معالجة العملية وتحديث المخزن أوتوماتيكياً ({target_branch})!**
 - **النوع:** {'بيع / منصرف' if data.get('type')=='SALE' else 'شراء / وارد'}
 - **الصنف:** {data.get('item_name')}
 - **الكمية:** {qty} {data.get('unit')}
 - **القيمة الإجمالية:** {total} ج.م"""
                         except Exception as e:
-                            response_text = f"❌ خطأ أثناء الحفظ في قاعدة البيانات: {str(e)}"
+                            response_text = f"❌ خطأ أثناء الحفظ أو التحديث بالمخزن: {str(e)}"
 
                     st.markdown(response_text)
                     st.session_state.messages.append({"role": "assistant", "content": response_text})
