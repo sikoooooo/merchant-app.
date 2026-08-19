@@ -63,7 +63,7 @@ except Exception:
 genai.configure(api_key=gemini_api_key)
 
 def get_next_gemini_model():
-    return genai.GenerativeModel('gemini-1.5-flash')
+    return genai.GenerativeModel('gemini-3.6-flash')
 
 # --- 5. المعالجة الذكية بالاعتماد على جدول الذاكرة (business_rules) ---
 def smart_process_command(user_text, branch="الفرع الرئيسي (القاهرة)"):
