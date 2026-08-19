@@ -49,62 +49,43 @@ html, body, [class*="css"] {
 # --- 3. بيانات الاتصال بقاعدة البيانات ---
 SUPABASE_URL = "https://nqindgywshroejrcxtky.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjgxNTExMCwiZXhwIjoyMTAyMzkxMTEwfQ.g-jpUzajE_OxGNNjF2QCFZINWjRfGSPCSHR2rtOtUTE"
-
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # --- 4. إعداد مفتاح الـ Gemini بشكل آمن ---
 try:
     if "GOOGLE_API_KEY" in st.secrets:
         gemini_api_key = st.secrets["GOOGLE_API_KEY"]
+    else:
+        gemini_api_key = ""
 except Exception:
-    pass
+    gemini_api_key = ""
 
 genai.configure(api_key=gemini_api_key)
 
 def get_next_gemini_model():
     return genai.GenerativeModel('gemini-1.5-flash')
 
-def get_next_gemini_model():
-    return genai.GenerativeModel('gemini-1.5-flash')
-
-def get_next_gemini_model():
-    current_key = next(key_pool)
-    genai.configure(api_key=current_key)
-    return genai.GenerativeModel('gemini-1.5-flash')
-
 # --- 5. المعالجة الذكية بالاعتماد على جدول الذاكرة (business_rules) ---
 def smart_process_command(user_text, branch="الفرع الرئيسي (القاهرة)"):
-    """
-    دالة ذكية لمعالجة كلام التاجر باستخدام نظام المفاتيح المتعددة وجدول الذاكرة
-    """
+    """ دالة ذكية لمعالجة كلام التاجر باستخدام الجدول وذكاء Gemini """
     try:
         rules_res = supabase.table("business_rules").select("*").eq("branch", branch).execute()
         known_rules = rules_res.data if rules_res.data else []
     except Exception as e:
         known_rules = []
-
+        
     model = get_next_gemini_model()
     
     prompt = f"""
     أنت محاسب ذكي لنظام ERP مرن. التاجر أدخل الجملة التالية: "{user_text}"
-    
-    إليك قواعد التحويل المحفوظة سابقاً لدى التاجر في هذا الفرع:
-    {json.dumps(known_rules, ensure_ascii=False)}
+    إليك قواعد التحويل المحفوظة سابقاً لدى التاجر في هذا الفرع: {json.dumps(known_rules, ensure_ascii=False)}
     
     مهمتك:
     1. فهم نوع العملية (SALE لبيع، PURCHASE لشراء، أو QUERY للاستعلام).
     2. استخراج اسم الصنف والكمية ووحدة القياس المدخلة.
     3. استخراج السعر إن وجد، وإلا اجعله 0.
     4. يجب أن يكون ردك بصيغة JSON نقي فقط بدون أي كلام إضافي بالشكل التالي:
-    {{
-      "type": "SALE أو PURCHASE أو QUERY",
-      "item_name": "اسم الصنف",
-      "quantity": رقم,
-      "unit": "وحدة القياس",
-      "unit_price": رقم,
-      "needs_clarification": false,
-      "message_to_user": "رد ودود ومؤكد للتاجر"
-    }}
+    {{"type": "SALE أو PURCHASE أو QUERY", "item_name": "اسم الصنف", "quantity": رقم, "unit": "وحدة القياس", "unit_price": رقم, "needs_clarification": false, "message_to_user": "رد ودود ومؤكد للتاجر" }}
     """
     
     response = model.generate_content(prompt)
@@ -130,11 +111,7 @@ if "employees_list" not in st.session_state:
     ]
 
 ALL_AVAILABLE_PERMISSIONS = [
-    "تسجيل مبيعات",
-    "استعلام عن الأسعار",
-    "متابعة وجرد المخازن",
-    "تسجيل المصاريف",
-    "متابعة التقارير المالية"
+    "تسجيل مبيعات", "استعلام عن الأسعار", "متابعة وجرد المخازن", "تسجيل المصاريف", "متابعة التقارير المالية"
 ]
 
 # --- 6. إدارة الجلسة والدخول ---
@@ -209,7 +186,7 @@ else:
             if inventory_data:
                 st.dataframe(inventory_data, use_container_width=True)
             else:
-                st.info("لا توجد أصناف مسجلة في المخزن حتى الآن. ابدأ بتسجيل عمليات بيع أو شراء وسيقوم السيستم بتعبئة المخزن تلقائياً!")
+                st.info("لا توجد أصناف مسجلة في المخزن حتى الآن.")
         except Exception as e:
             st.error(f"خطأ في جلب بيانات المخزن: {e}")
 
@@ -228,7 +205,7 @@ else:
             with c2:
                 default_perms = [p for p in emp["permissions"] if p in ALL_AVAILABLE_PERMISSIONS]
                 new_perms = st.multiselect(f"صلاحيات الموظف {i+1}", options=ALL_AVAILABLE_PERMISSIONS, default=default_perms, key=f"perms_{i}")
-                
+            
             if st.button(f"💾 حفظ التعديلات للموظف {i+1}", key=f"save_{i}"):
                 st.session_state.employees_list[i]["name"] = new_name
                 st.session_state.employees_list[i]["branch"] = new_branch
@@ -236,58 +213,36 @@ else:
                 st.success("تم الحفظ بنجاح!")
                 st.rerun()
             st.markdown("---")
+
     else:
         target_branch = st.selectbox("📍 اختر الفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
-
-        st.markdown(f"""
+        
+        st.markdown("""
         <div class="hero-header">
             <h2>🤖 المحاسب الذكي التفاعلي</h2>
-            <p>الفرع الحالي: <b>{target_branch}</b></p>
         </div>
         """, unsafe_allow_html=True)
-
+        
+        st.write(f"الفرع الحالي: **{target_branch}**")
+        
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
-
-        if prompt := st.chat_input("اكتب معاملتك هنا (مثال: اشترينا 5 طن زيت بـ 30000 أو بعنا 2 توب قماش)..."):
+                
+        if prompt := st.chat_input("اكتب معاملتك هنا (مثال: اشترينا 5 طن زيت بـ 30000)..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
-
+                
             with st.chat_message("assistant"):
-                with st.spinner("🤖 جاري تحليل المعاملة بالذكاء الاصطناعي وجدول الذاكرة وتحديث المخزن..."):
+                with st.spinner("🤖 جاري تحليل المعاملة بالذكاء الاصطناعي..."):
                     data = smart_process_command(prompt, branch=target_branch)
                     
                     if data.get("type") == "QUERY":
-                        response_text = f"🔍 {data.get('message_to_user', 'تم الاستعلام بنجاح.')} (الصنف: **{data.get('item_name', prompt)}**)"
+                        response_text = f"🔍 {data.get('message_to_user', 'تم الاستعلام بنجاح.')}"
                     else:
-                        try:
-                            qty = float(data.get("quantity", 1))
-                            price = float(data.get("unit_price", 0))
-                            total = qty * price if price > 0 else 0
-                            
-                            payload = {
-                                "branch": target_branch,
-                                "type": data.get("type", "SALE"),
-                                "item_name": data.get("item_name", prompt),
-                                "quantity": qty,
-                                "unit": data.get("unit", "قطعة"),
-                                "unit_price": price,
-                                "total_amount": total,
-                                "employee": st.session_state.user_name,
-                                "raw_text": prompt
-                            }
-                            supabase.table("transactions").insert(payload).execute()
-                            
-                            friendly_msg = data.get("message_to_user", "تمت المعالجة بنجاح.")
-                            response_text = f"""✅ **{friendly_msg}**
-- **النوع:** {'بيع / منصرف' if data.get('type')=='SALE' else 'شراء / وارد'}
-- **الصنف:** {data.get('item_name')}
-- **الكمية:** {qty} {data.get('unit')}
-- **القيمة الإجمالية:** {total} ج.م"""
-                        except Exception as e:
-                            response_text = f"❌ خطأ أثناء الحفظ أو التحديث بالمخزن: {str(e)}"
-
+                        response_text = f"✅ {data.get('message_to_user', 'تم تسجيل العملية.')}\n\n- الصنف: {data.get('item_name')}\n- الكمية: {data.get('quantity')} {data.get('unit')}\n- السعر: {data.get('unit_price')}"
+                    
                     st.markdown(response_text)
                     st.session_state.messages.append({"role": "assistant", "content": response_text})
+                    
