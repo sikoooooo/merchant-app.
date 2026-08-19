@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import google.generativeai as genai
 import itertools
@@ -64,7 +65,50 @@ def get_next_gemini_model():
     current_key = next(key_pool)
     genai.configure(api_key=current_key)
     return genai.GenerativeModel('gemini-1.5-flash')
+def smart_process_command(user_text, branch="الفرع الرئيسي (القاهرة)"):
+    """
+    دالة ذكية لمعالجة كلام التاجر باستخدام نظام المفاتيح المتعددة وجدول الذاكرة
+    """
+    # 1. جلب قواعد التعلم الخاصة بالفرع من Supabase
+    try:
+        rules_res = supabase.table("business_rules").select("*").eq("branch", branch).execute()
+        known_rules = rules_res.data if rules_res.data else []
+    except Exception as e:
+        known_rules = []
 
+    # 2. استدعاء موديل Gemini باستخدام نظام تدوير المفاتيح عندك (get_gemini_model)
+    model = get_gemini_model()
+    
+    prompt = f"""
+    أنت محاسب ذكي لنظام ERP مرن. التاجر أدخل الجملة التالية: "{user_text}"
+    
+    إليك قواعد التحويل المحفوظة سابقاً لدى التاجر في هذا الفرع:
+    {json.dumps(known_rules, ensure_ascii=False)}
+    
+    مهمتك:
+    1. فهم نوع العملية (SALE لبيع أو PURCHASE لشراء).
+    2. استخراج اسم الصنف والكمية ووحدة القياس المدخلة.
+    3. إذا كانت وحدة القياس بحاجة لتوضيح أو جديدة، اذكر ذلك.
+    4. يجب أن يكون ردك بصيغة JSON نقي فقط بدون أي كلام إضافي بالشكل التالي:
+    {{
+      "type": "SALE أو PURCHASE",
+      "item_name": "اسم الصنف",
+      "quantity": رقم,
+      "unit": "وحدة القياس",
+      "needs_clarification": false,
+      "message_to_user": "رد ودود ومؤكد للتاجر"
+    }}
+    """
+    
+    response = model.generate_content(prompt)
+    
+    # تنظيف وتفسير رد الـ AI
+    try:
+        clean_text = response.text.replace("```json", "").replace("```", "").strip()
+        result = json.loads(clean_text)
+        return result
+    except Exception as e:
+        return {"error": "لم نتمكن من تحليل الجملة بدقة، حاول مرة أخرى.", "raw": response.text}
 if "employees_list" not in st.session_state:
     st.session_state.employees_list = [
         {"id": 1, "name": "محمود", "role": "موظف مبيعات", "branch": "الفرع الرئيسي (القاهرة)", "permissions": ["تسجيل مبيعات", "استعلام عن الأسعار"]},
