@@ -45,10 +45,10 @@ html, body, [class*="css"] {
 
 # --- 3. بيانات الاتصال بقاعدة البيانات ---
 SUPABASE_URL = "https://nqindgywshroejrcxtky.supabase.co"
-SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTUxMTAsImV4cCI6MjEwMjM5MTExMH0.z_BwGFoaJp9m3PCwjBd4fLir_j_2OcX7_zYKNjmXv2g"
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6In5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjgxNTExMCwiZXhwIjoyMTAyMzkxMTEwfQ.g-jpUzajE_OxGNNjF2QCFZINWjRfGSPCSHR2rtOtUTE"
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-# قائمة الموظفين
 if "employees_list" not in st.session_state:
     st.session_state.employees_list = [
         {"id": 1, "name": "محمود", "role": "موظف مبيعات", "branch": "الفرع الرئيسي (القاهرة)", "permissions": ["تسجيل مبيعات", "استعلام عن الأسعار"]},
@@ -101,7 +101,6 @@ if "logged_in" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# شاشة تسجيل الدخول
 if not st.session_state.logged_in:
     st.markdown("""
     <div class="hero-header">
@@ -124,7 +123,6 @@ if not st.session_state.logged_in:
             else:
                 st.error("خطأ في بيانات الدخول.")
 else:
-    # القائمة الجانبية الخاصة بالآدمن
     if st.session_state.role == "admin":
         with st.sidebar:
             st.markdown("### 👑 لوحة التحكم الإدارية")
@@ -145,7 +143,6 @@ else:
             st.session_state.logged_in = False
             st.rerun()
 
-    # محتوى صفحة إدارة الموظفين
     if st.session_state.role == "admin" and admin_page == "🛠️ إدارة الموظفين والصلاحيات":
         st.markdown("""
         <div class="hero-header">
@@ -190,7 +187,7 @@ else:
                 st.markdown(prompt)
 
             with st.chat_message("assistant"):
-                with st.spinner("جاري معالجة وتفظ العملية..."):
+                with st.spinner("جاري معالجة وحفظ العملية..."):
                     data = process_command_smart(prompt)
                     
                     if data.get("type") == "QUERY":
