@@ -213,8 +213,26 @@ else:
                                     "branch": target_branch,
                                     "employee": st.session_state.user_name
                                 }
-                                supabase.table("transactions").insert(payload).execute()
-                                response_text = f"✅ **تم تسجيل العملية بنجاح في قاعدة البيانات!**\n- البيان: {item}\n- الكمية: {qty}\n- القيمة: {amt} ج.م"
+                               supabase.table("transactions").insert(payload).execute()
+                                
+                                # تحديث أو إضافة الصنف مباشرة في جدول inventory (المخزن)
+                                existing_item = supabase.table("inventory").select("*").eq("branch", target_branch).ilike("item_name", f"%{item}%").execute()
+                                
+                                if existing_item.data and len(existing_item.data) > 0:
+                                    current_qty = existing_item.data[0].get("quantity", 0)
+                                    item_id = existing_item.data[0]["id"]
+                                    
+                                    new_qty = current_qty + qty if tx_type == "EXPENSE" else current_qty - qty
+                                    supabase.table("inventory").update({"quantity": max(0, new_qty)}).eq("id", item_id).execute()
+                                else:
+                                    supabase.table("inventory").insert({
+                                        "branch": target_branch,
+                                        "item_name": item,
+                                        "quantity": qty,
+                                        "price": amt / qty if qty > 0 else amt
+                                    }).execute()
+
+                                response_text = f"✅ **تم تسجيل العملية وتحديث المخزن بنجاح في ({target_branch})!**\n- البيان: {item}\n- الكمية: {qty}\n- القيمة: {amt} ج.م"
                             except Exception as e:
                                 response_text = f"❌ خطأ في حفظ البيانات: {str(e)}"
 
