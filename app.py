@@ -52,27 +52,19 @@ SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmF
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-# --- 4. إدارة المفاتيح المتعددة والتبديل الذكي لتوفير الاستهلاك ---
-# --- 4. إدارة المفاتيح المتعددة والتبديل الذكي لتوفير الاستهلاك ---
-API_KEYS = [
-    "AQ.Ab8RN6IOOQs421k9-f9CtpYl-b7mKWe1ID2e-VODE8WbGDLy0g", # hookapi
-    "AQ.Ab8RN6LDnxPObId4PxP_7RWvXtPSekj6ftHZ6AIwiVKyVQso5Q", # mk
-    "AQ.Ab8RN6IXSRGUETheaRkxa2JuolYCfGIL-888kwz8J9-OfWZ4Gw"  # kh
-]
-
-# إضافة مفتاح الـ Secret إذا كان موجوداً لتجنب أي أخطاء
+# --- 4. إعداد مفتاح الـ Gemini بشكل آمن ---
 try:
     if "GOOGLE_API_KEY" in st.secrets:
-        # إضافة مفتاح الـ Secret إلى القائمة
-        API_KEYS.insert(0, st.secrets["GOOGLE_API_KEY"])
+        gemini_api_key = st.secrets["GOOGLE_API_KEY"]
 except Exception:
     pass
 
-key_pool = itertools.cycle(API_KEYS)
+genai.configure(api_key=gemini_api_key)
 
 def get_next_gemini_model():
-    current_key = next(key_pool)
-    genai.configure(api_key=current_key)
+    return genai.GenerativeModel('gemini-1.5-flash')
+
+def get_next_gemini_model():
     return genai.GenerativeModel('gemini-1.5-flash')
 
 def get_next_gemini_model():
