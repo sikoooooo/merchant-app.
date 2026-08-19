@@ -1,5 +1,7 @@
 import streamlit as st
-import re
+import google.generativeai as genai
+import itertools
+import json
 from supabase import create_client, Client
 
 # --- 1. إعدادات الصفحة ---
@@ -43,11 +45,25 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. بيانات الاتصال بقاعدة البيانات (مع مفتاح الخدمة الجديد) ---
+# --- 3. بيانات الاتصال بقاعدة البيانات ---
 SUPABASE_URL = "https://nqindgywshroejrcxtky.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjgxNTExMCwiZXhwIjoyMTAyMzkxMTEwfQ.g-jpUzajE_OxGNNjF2QCFZINWjRfGSPCSHR2rtOtUTE"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+# --- 4. إدارة المفاتيح المتعددة والتبديل الذكي لتوفير الاستهلاك ---
+API_KEYS = [
+    "AQ.Ab8RN6IOOQs421k9-f9CtpYl-b7mKWe1ID2e-VODE8WbGDLy0g", # hookapi
+    "AQ.Ab8RN6LDnxPObId4PxP_7RWvXtPSekj6ftHZ6AIwiVKyVQso5Q", # mk
+    "AQ.Ab8RN6IXSRGUETheaRkxa2JuolYCfGIL-888kwz8J9-OfWZ4Gw"  # kh
+]
+
+key_pool = itertools.cycle(API_KEYS)
+
+def get_next_gemini_model():
+    current_key = next(key_pool)
+    genai.configure(api_key=current_key)
+    return genai.GenerativeModel('gemini-1.5-flash')
 
 if "employees_list" not in st.session_state:
     st.session_state.employees_list = [
@@ -63,32 +79,36 @@ ALL_AVAILABLE_PERMISSIONS = [
     "متابعة التقارير المالية"
 ]
 
-# --- 4. المحلل الذكي المبسط والآمن ---
-import google.generativeai as genai
-import json
+# --- 5. المعالجة الذكية المدعومة بالذكاء الاصطناعي والتبديل ---
+def process_command_with_ai(text: str):
+    try:
+        model = get_next_gemini_model()
+        prompt_instruction = f"""
+        أنت محاسب ذكي لنظام ERP مرن يدعم الأنشطة المختلفة (زيوت، أقمشة، بيض، إلخ).
+        حلل الجملة التالية واستخرج منها البيانات بتنسيق JSON حصرياً بدون أي نصوص إضافية:
+        "{text}"
+        
+        الهيكل المطلوبة:
+        - "type": "SALE" إذا كانت بيع أو صرف، أو "PURCHASE" إذا كانت شراء أو توريد، أو "QUERY" إذا كان سؤالاً عن رصيد أو سعر.
+        - "item_name": اسم الصنف.
+        - "quantity": الكمية كرقم (اعتبرها 1 إن لم تذكر).
+        - "unit": وحدة القياس (مثل: طن، كيلو، توب، متر، كرتونة، قطعة).
+        - "unit_price": سعر الوحدة أو الإجمالي إذا وجد.
+        """
+        response = model.generate_content(prompt_instruction)
+        cleaned_text = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(cleaned_text)
+    except Exception as e:
+        # احتياطي في حال حدوث خطأ بالاتصال بالذكاء الاصطناعي
+        return {
+            "type": "QUERY" if "كم" in text or "سعر" in text else "SALE",
+            "item_name": text,
+            "quantity": 1,
+            "unit": "قطعة",
+            "unit_price": 0
+        }
 
-# إعداد Gemini (تحتاج API KEY من Google AI Studio)
-genai.configure(api_key="YOUR_GEMINI_API_KEY")
-
-def smart_process_with_ai(prompt, history):
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    
-    prompt_context = f"""
-    أنت محاسب ذكي لنظام ERP مرن. التاجر أدخل الجملة التالية: "{prompt}"
-    يجب أن تعود لي بتنسيق JSON فقط يحتوي على:
-    - type: (SALE أو PURCHASE)
-    - item_name: (اسم الصنف)
-    - quantity: (الكمية كرقم)
-    - unit: (وحدة القياس)
-    
-    استخدم التاريخ التالي للفهم: {str(history[-3:])}
-    """
-    
-    response = model.generate_content(prompt_context)
-    return json.loads(response.text)
-
-
-# --- 5. إدارة الجلسة والدخول ---
+# --- 6. إدارة الجلسة والدخول ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.role = None
@@ -178,60 +198,43 @@ else:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        if prompt := st.chat_input("اكتب معاملتك هنا (مثال: بعنا 5 كرتونة بـ 1200)..."):
+        if prompt := st.chat_input("اكتب معاملتك هنا (مثال: بعنا 0.4 طن زيت أو 3 توب قماش)..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
 
             with st.chat_message("assistant"):
-                with st.spinner("جاري معالجة وحفظ العملية وتحديث المخزن..."):
-                    data = process_command_smart(prompt)
+                with st.spinner("🤖 جاري تحليل المعاملة بالذكاء الاصطناعي وتحديث النظام..."):
+                    data = process_command_with_ai(prompt)
                     
                     if data.get("type") == "QUERY":
-                        response_text = f"🔍 تم استلام طلب البحث عن: {prompt} في فرع {target_branch}."
+                        response_text = f"🔍 تم استلام استعلامك بشأن: **{data.get('item_name', prompt)}** في فرع {target_branch}."
                     else:
-                        amt = data.get("amount", 0)
-                        tx_type = data.get("type", "EXPENSE")
-                        item = data.get("item_or_person", prompt)
-                        qty = data.get("quantity", 1)
-                        tx_category = data.get("category", "مشتريات")
-                        
-                        if amt == 0:
-                            response_text = "⚠️ لم أستطع تحديد المبلغ بوضوح، يرجى كتابة الرقم مع العملية."
-                        else:
-                            try:
-                                payload = {
-                                    "type": tx_type,
-                                    "item_or_person": item,
-                                    "quantity": qty,
-                                    "amount": amt,
-                                    "raw_text": prompt,
-                                    "category": tx_category,
-                                    "branch": target_branch,
-                                    "employee": st.session_state.user_name
-                                }
-                                supabase.table("transactions").insert(payload).execute()
-                                
-                                # تحديث أو إضافة الصنف تلقائياً في جدول inventory
-                                existing_item = supabase.table("inventory").select("*").eq("branch", target_branch).ilike("item_name", f"%{item}%").execute()
-                                
-                                if existing_item.data and len(existing_item.data) > 0:
-                                    current_qty = existing_item.data[0].get("quantity", 0)
-                                    item_id = existing_item.data[0]["id"]
-                                    
-                                    new_qty = current_qty + qty if tx_type == "EXPENSE" else current_qty - qty
-                                    supabase.table("inventory").update({"quantity": max(0, new_qty)}).eq("id", item_id).execute()
-                                else:
-                                    supabase.table("inventory").insert({
-                                        "branch": target_branch,
-                                        "item_name": item,
-                                        "quantity": qty,
-                                        "price": amt / qty if qty > 0 else amt
-                                    }).execute()
-
-                                response_text = f"✅ **تم تسجيل العملية وتحديث المخزن بنجاح في ({target_branch})!**\n- البيان: {item}\n- الكمية: {qty}\n- القيمة: {amt} ج.م"
-                            except Exception as e:
-                                response_text = f"❌ خطأ في حفظ وتحديث المخزن: {str(e)}"
+                        try:
+                            qty = float(data.get("quantity", 1))
+                            price = float(data.get("unit_price", 0))
+                            total = qty * price if price > 0 else 0
+                            
+                            payload = {
+                                "branch": target_branch,
+                                "type": data.get("type", "SALE"),
+                                "item_name": data.get("item_name", prompt),
+                                "quantity": qty,
+                                "unit": data.get("unit", "قطعة"),
+                                "unit_price": price,
+                                "total_amount": total,
+                                "employee": st.session_state.user_name,
+                                "raw_text": prompt
+                            }
+                            supabase.table("transactions").insert(payload).execute()
+                            
+                            response_text = f"""✅ **تمت معالجة العملية وتسجيلها بنجاح ({target_branch})!**
+- **النوع:** {'بيع / منصرف' if data.get('type')=='SALE' else 'شراء / وارد'}
+- **الصنف:** {data.get('item_name')}
+- **الكمية:** {qty} {data.get('unit')}
+- **القيمة الإجمالية:** {total} ج.م"""
+                        except Exception as e:
+                            response_text = f"❌ خطأ أثناء الحفظ في قاعدة البيانات: {str(e)}"
 
                     st.markdown(response_text)
                     st.session_state.messages.append({"role": "assistant", "content": response_text})
