@@ -64,32 +64,29 @@ ALL_AVAILABLE_PERMISSIONS = [
 ]
 
 # --- 4. المحلل الذكي المبسط والآمن ---
-def process_command_smart(text: str):
-    query_keywords = ["بكام", "سعر", "عندنا", "كام", "فين", "رصيد", "إيه", "ايه"]
-    is_query = any(k in text for k in query_keywords) and not any(w in text for w in ["اشترينا", "بعنا", "دفعنا", "قبضنا"])
-    
-    if is_query:
-        return {"type": "QUERY", "query_text": text}
+import google.generativeai as genai
+import json
 
-    income_keywords = ["بيع", "بعت", "بعنا", "باع", "مبيعات", "قبضت", "قبضنا", "حصلنا", "توريد"]
-    is_sale = any(w in text for w in income_keywords)
-    
-    numbers = [float(n) for n in re.findall(r'\d+(?:\.\d+)?', text)]
-    
-    if len(numbers) >= 2 and ("كرتونة" in text or "قطعة" in text or "كيلو" in text):
-        qty = numbers[0]
-        amount = numbers[0] * numbers[1] if len(numbers) == 2 and numbers[1] < 1000 else numbers[-1]
-    else:
-        qty = numbers[0] if len(numbers) >= 2 and not ("بـ" in text or "بى" in text) else 1
-        amount = numbers[-1] if numbers else 0
+# إعداد Gemini (تحتاج API KEY من Google AI Studio)
+genai.configure(api_key="YOUR_GEMINI_API_KEY")
 
-    return {
-        "type": "INCOME" if is_sale else "EXPENSE",
-        "category": "مبيعات" if is_sale else "مشتريات وبضاعة",
-        "item_or_person": text,
-        "quantity": int(qty),
-        "amount": amount
-    }
+def smart_process_with_ai(prompt, history):
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    prompt_context = f"""
+    أنت محاسب ذكي لنظام ERP مرن. التاجر أدخل الجملة التالية: "{prompt}"
+    يجب أن تعود لي بتنسيق JSON فقط يحتوي على:
+    - type: (SALE أو PURCHASE)
+    - item_name: (اسم الصنف)
+    - quantity: (الكمية كرقم)
+    - unit: (وحدة القياس)
+    
+    استخدم التاريخ التالي للفهم: {str(history[-3:])}
+    """
+    
+    response = model.generate_content(prompt_context)
+    return json.loads(response.text)
+
 
 # --- 5. إدارة الجلسة والدخول ---
 if "logged_in" not in st.session_state:
