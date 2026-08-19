@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. التصميم ---
+# --- 2. التصميم وتثبيت القائمة الجانبية ---
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
@@ -45,7 +45,7 @@ html, body, [class*="css"] {
 
 # --- 3. بيانات الاتصال بقاعدة البيانات ---
 SUPABASE_URL = "https://nqindgywshroejrcxtky.supabase.co"
-SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjgxNTExMCwiZXhwIjoyMTAyMzkxMTEwfQ.g-jpUzajE_OxGNNjF2QCFZINWjRfGSPCSHR2rtOtUTE"
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6In5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjgxNTExMCwiZXhwIjoyMTAyMzkxMTEwfQ.g-jpUzajE_OxGNNjF2QCFZINWjRfGSPCSHR2rtOtUTE"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -187,7 +187,7 @@ else:
                 st.markdown(prompt)
 
             with st.chat_message("assistant"):
-                with st.spinner("جاري معالجة وحفظ العملية..."):
+                with st.spinner("جاري معالجة وحفظ العملية وتحديث المخزن..."):
                     data = process_command_smart(prompt)
                     
                     if data.get("type") == "QUERY":
@@ -213,9 +213,9 @@ else:
                                     "branch": target_branch,
                                     "employee": st.session_state.user_name
                                 }
-                               supabase.table("transactions").insert(payload).execute()
+                                supabase.table("transactions").insert(payload).execute()
                                 
-                                # تحديث أو إضافة الصنف مباشرة في جدول inventory (المخزن)
+                                # تحديث أو إضافة الصنف تلقائياً في جدول inventory
                                 existing_item = supabase.table("inventory").select("*").eq("branch", target_branch).ilike("item_name", f"%{item}%").execute()
                                 
                                 if existing_item.data and len(existing_item.data) > 0:
@@ -234,7 +234,7 @@ else:
 
                                 response_text = f"✅ **تم تسجيل العملية وتحديث المخزن بنجاح في ({target_branch})!**\n- البيان: {item}\n- الكمية: {qty}\n- القيمة: {amt} ج.م"
                             except Exception as e:
-                                response_text = f"❌ خطأ في حفظ البيانات: {str(e)}"
+                                response_text = f"❌ خطأ في حفظ وتحديث المخزن: {str(e)}"
 
                     st.markdown(response_text)
                     st.session_state.messages.append({"role": "assistant", "content": response_text})
