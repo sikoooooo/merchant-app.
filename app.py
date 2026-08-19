@@ -45,8 +45,7 @@ html, body, [class*="css"] {
 
 # --- 3. بيانات الاتصال بقاعدة البيانات ---
 SUPABASE_URL = "https://nqindgywshroejrcxtky.supabase.co"
-SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6In5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjgxNTExMCwiZXhwIjoyMTAyMzkxMTEwfQ.g-jpUzajE_OxGNNjF2QCFZINWjRfGSPCSHR2rtOtUTE"
-
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xaW5kZ3l3c2hyb2VqcmN4dGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTUxMTAsImV4cCI6MjEwMjM5MTExMH0.z_BwGFoaJp9m3PCwjBd4fLir_j_2OcX7_zYKNjmXv2g
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # قائمة الموظفين
