@@ -49,6 +49,21 @@ SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmF
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
+# قائمة الموظفين
+if "employees_list" not in st.session_state:
+    st.session_state.employees_list = [
+        {"id": 1, "name": "محمود", "role": "موظف مبيعات", "branch": "الفرع الرئيسي (القاهرة)", "permissions": ["تسجيل مبيعات", "استعلام عن الأسعار"]},
+        {"id": 2, "name": "إسلام", "role": "مسؤول مخازن", "branch": "الفرع الرئيسي (القاهرة)", "permissions": ["متابعة وجرد المخازن"]}
+    ]
+
+ALL_AVAILABLE_PERMISSIONS = [
+    "تسجيل مبيعات",
+    "استعلام عن الأسعار",
+    "متابعة وجرد المخازن",
+    "تسجيل المصاريف",
+    "متابعة التقارير المالية"
+]
+
 # --- 4. المحلل الذكي المبسط والآمن ---
 def process_command_smart(text: str):
     query_keywords = ["بكام", "سعر", "عندنا", "كام", "فين", "رصيد", "إيه", "ايه"]
@@ -60,10 +75,8 @@ def process_command_smart(text: str):
     income_keywords = ["بيع", "بعت", "بعنا", "باع", "مبيعات", "قبضت", "قبضنا", "حصلنا", "توريد"]
     is_sale = any(w in text for w in income_keywords)
     
-    # استخراج الأرقام من النص بطريقة دقيقة
     numbers = [float(n) for n in re.findall(r'\d+(?:\.\d+)?', text)]
     
-    # تحليل الكمية والمبلغ بناءً على صيغة الجملة
     if len(numbers) >= 2 and ("كرتونة" in text or "قطعة" in text or "كيلو" in text):
         qty = numbers[0]
         amount = numbers[0] * numbers[1] if len(numbers) == 2 and numbers[1] < 1000 else numbers[-1]
@@ -89,6 +102,7 @@ if "logged_in" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# شاشة تسجيل الدخول
 if not st.session_state.logged_in:
     st.markdown("""
     <div class="hero-header">
@@ -98,10 +112,10 @@ if not st.session_state.logged_in:
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        username = st.text_input("اسم المستخدم:", value="admin")
+        username = st.text_input("اسم المستخدم الإداري:", value="admin")
         password = st.text_input("كلمة المرور:", type="password", value="1234")
         
-        if st.button("دخول"):
+        if st.button("دخول لوحة التحكم"):
             if username == "admin" and password == "1234":
                 st.session_state.logged_in = True
                 st.session_state.role = "admin"
@@ -111,59 +125,102 @@ if not st.session_state.logged_in:
             else:
                 st.error("خطأ في بيانات الدخول.")
 else:
-    target_branch = st.selectbox("📍 اختر الفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
-    
-    if st.button("🚪 خروج"):
-        st.session_state.logged_in = False
-        st.rerun()
+    # القائمة الجانبية الخاصة بالآدمن
+    if st.session_state.role == "admin":
+        with st.sidebar:
+            st.markdown("### 👑 لوحة التحكم الإدارية")
+            st.write(f"مرحباً بك: **{st.session_state.user_name}**")
+            st.markdown("---")
+            admin_page = st.radio(
+                "اختر القسم:",
+                ["📊 متابعة العمليات والشات الذكي", "🛠️ إدارة الموظفين والصلاحيات"]
+            )
+            st.markdown("---")
+            if st.button("🚪 تسجيل الخروج"):
+                st.session_state.logged_in = False
+                st.session_state.role = None
+                st.rerun()
+    else:
+        admin_page = "📊 متابعة العمليات والشات الذكي"
+        if st.button("🚪 خروج"):
+            st.session_state.logged_in = False
+            st.rerun()
 
-    st.markdown(f"""
-    <div class="hero-header">
-        <h2>🤖 المحاسب الذكي التفاعلي</h2>
-        <p>الفرع الحالي: <b>{target_branch}</b></p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    if prompt := st.chat_input("اكتب معاملتك هنا (مثال: بعنا 5 كرتونة بـ 1200)..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            with st.spinner("جاري معالجة وتفظ العملية..."):
-                data = process_command_smart(prompt)
+    # محتوى صفحة إدارة الموظفين
+    if st.session_state.role == "admin" and admin_page == "🛠️ إدارة الموظفين والصلاحيات":
+        st.markdown("""
+        <div class="hero-header">
+            <h2>🛠️ إدارة الموظفين والصلاحيات</h2>
+            <p>تعديل فروع وصلاحيات طاقم العمل</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        for i, emp in enumerate(st.session_state.employees_list):
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                new_name = st.text_input(f"اسم الموظف {i+1}", value=emp["name"], key=f"name_{i}")
+                new_branch = st.selectbox(f"الفرع {i+1}", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], index=0 if emp["branch"]=="الفرع الرئيسي (القاهرة)" else 1, key=f"br_{i}")
+            with c2:
+                default_perms = [p for p in emp["permissions"] if p in ALL_AVAILABLE_PERMISSIONS]
+                new_perms = st.multiselect(f"صلاحيات الموظف {i+1}", options=ALL_AVAILABLE_PERMISSIONS, default=default_perms, key=f"perms_{i}")
                 
-                if data.get("type") == "QUERY":
-                    response_text = f"🔍 تم استلام طلب البحث عن: {prompt} في فرع {target_branch}."
-                else:
-                    amt = data.get("amount", 0)
-                    tx_type = data.get("type", "EXPENSE")
-                    item = data.get("item_or_person", prompt)
-                    qty = data.get("quantity", 1)
-                    tx_category = data.get("category", "مشتريات")
-                    
-                    if amt == 0:
-                        response_text = "⚠️ لم أستطع تحديد المبلغ بوضوح، يرجى كتابة الرقم مع العملية."
-                    else:
-                        try:
-                            payload = {
-                                "type": tx_type,
-                                "item_or_person": item,
-                                "quantity": qty,
-                                "amount": amt,
-                                "raw_text": prompt,
-                                "category": tx_category,
-                                "branch": target_branch,
-                                "employee": st.session_state.user_name
-                            }
-                            supabase.table("transactions").insert(payload).execute()
-                            response_text = f"✅ **تم تسجيل العملية بنجاح في قاعدة البيانات!**\n- البيان: {item}\n- الكمية: {qty}\n- القيمة: {amt} ج.م"
-                        except Exception as e:
-                            response_text = f"❌ خطأ في حفظ البيانات: {str(e)}"
+            if st.button(f"💾 حفظ التعديلات للموظف {i+1}", key=f"save_{i}"):
+                st.session_state.employees_list[i]["name"] = new_name
+                st.session_state.employees_list[i]["branch"] = new_branch
+                st.session_state.employees_list[i]["permissions"] = new_perms
+                st.success("تم الحفظ بنجاح!")
+                st.rerun()
+            st.markdown("---")
+    else:
+        target_branch = st.selectbox("📍 اختر الفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
 
-                st.markdown(response_text)
-                st.session_state.messages.append({"role": "assistant", "content": response_text})
+        st.markdown(f"""
+        <div class="hero-header">
+            <h2>🤖 المحاسب الذكي التفاعلي</h2>
+            <p>الفرع الحالي: <b>{target_branch}</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        if prompt := st.chat_input("اكتب معاملتك هنا (مثال: بعنا 5 كرتونة بـ 1200)..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            with st.chat_message("assistant"):
+                with st.spinner("جاري معالجة وتفظ العملية..."):
+                    data = process_command_smart(prompt)
+                    
+                    if data.get("type") == "QUERY":
+                        response_text = f"🔍 تم استلام طلب البحث عن: {prompt} في فرع {target_branch}."
+                    else:
+                        amt = data.get("amount", 0)
+                        tx_type = data.get("type", "EXPENSE")
+                        item = data.get("item_or_person", prompt)
+                        qty = data.get("quantity", 1)
+                        tx_category = data.get("category", "مشتريات")
+                        
+                        if amt == 0:
+                            response_text = "⚠️ لم أستطع تحديد المبلغ بوضوح، يرجى كتابة الرقم مع العملية."
+                        else:
+                            try:
+                                payload = {
+                                    "type": tx_type,
+                                    "item_or_person": item,
+                                    "quantity": qty,
+                                    "amount": amt,
+                                    "raw_text": prompt,
+                                    "category": tx_category,
+                                    "branch": target_branch,
+                                    "employee": st.session_state.user_name
+                                }
+                                supabase.table("transactions").insert(payload).execute()
+                                response_text = f"✅ **تم تسجيل العملية بنجاح في قاعدة البيانات!**\n- البيان: {item}\n- الكمية: {qty}\n- القيمة: {amt} ج.م"
+                            except Exception as e:
+                                response_text = f"❌ خطأ في حفظ البيانات: {str(e)}"
+
+                    st.markdown(response_text)
+                    st.session_state.messages.append({"role": "assistant", "content": response_text})
