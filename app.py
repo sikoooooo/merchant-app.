@@ -65,19 +65,19 @@ def get_next_gemini_model():
     current_key = next(key_pool)
     genai.configure(api_key=current_key)
     return genai.GenerativeModel('gemini-1.5-flash')
+
+# --- 5. المعالجة الذكية بالاعتماد على جدول الذاكرة (business_rules) ---
 def smart_process_command(user_text, branch="الفرع الرئيسي (القاهرة)"):
     """
     دالة ذكية لمعالجة كلام التاجر باستخدام نظام المفاتيح المتعددة وجدول الذاكرة
     """
-    # 1. جلب قواعد التعلم الخاصة بالفرع من Supabase
     try:
         rules_res = supabase.table("business_rules").select("*").eq("branch", branch).execute()
         known_rules = rules_res.data if rules_res.data else []
     except Exception as e:
         known_rules = []
 
-    # 2. استدعاء موديل Gemini باستخدام نظام تدوير المفاتيح عندك (get_gemini_model)
-    model = get_gemini_model()
+    model = get_next_gemini_model()
     
     prompt = f"""
     أنت محاسب ذكي لنظام ERP مرن. التاجر أدخل الجملة التالية: "{user_text}"
@@ -86,15 +86,16 @@ def smart_process_command(user_text, branch="الفرع الرئيسي (القا
     {json.dumps(known_rules, ensure_ascii=False)}
     
     مهمتك:
-    1. فهم نوع العملية (SALE لبيع أو PURCHASE لشراء).
+    1. فهم نوع العملية (SALE لبيع، PURCHASE لشراء، أو QUERY للاستعلام).
     2. استخراج اسم الصنف والكمية ووحدة القياس المدخلة.
-    3. إذا كانت وحدة القياس بحاجة لتوضيح أو جديدة، اذكر ذلك.
+    3. استخراج السعر إن وجد، وإلا اجعله 0.
     4. يجب أن يكون ردك بصيغة JSON نقي فقط بدون أي كلام إضافي بالشكل التالي:
     {{
-      "type": "SALE أو PURCHASE",
+      "type": "SALE أو PURCHASE أو QUERY",
       "item_name": "اسم الصنف",
       "quantity": رقم,
       "unit": "وحدة القياس",
+      "unit_price": رقم,
       "needs_clarification": false,
       "message_to_user": "رد ودود ومؤكد للتاجر"
     }}
@@ -102,13 +103,20 @@ def smart_process_command(user_text, branch="الفرع الرئيسي (القا
     
     response = model.generate_content(prompt)
     
-    # تنظيف وتفسير رد الـ AI
     try:
         clean_text = response.text.replace("```json", "").replace("```", "").strip()
         result = json.loads(clean_text)
         return result
     except Exception as e:
-        return {"error": "لم نتمكن من تحليل الجملة بدقة، حاول مرة أخرى.", "raw": response.text}
+        return {
+            "type": "QUERY" if "كم" in user_text or "سعر" in user_text else "SALE",
+            "item_name": user_text,
+            "quantity": 1,
+            "unit": "قطعة",
+            "unit_price": 0,
+            "message_to_user": "تم استقبال الجملة وتجهيزها."
+        }
+
 if "employees_list" not in st.session_state:
     st.session_state.employees_list = [
         {"id": 1, "name": "محمود", "role": "موظف مبيعات", "branch": "الفرع الرئيسي (القاهرة)", "permissions": ["تسجيل مبيعات", "استعلام عن الأسعار"]},
@@ -122,34 +130,6 @@ ALL_AVAILABLE_PERMISSIONS = [
     "تسجيل المصاريف",
     "متابعة التقارير المالية"
 ]
-
-# --- 5. المعالجة الذكية بالذكاء الاصطناعي ---
-def process_command_with_ai(text: str):
-    try:
-        model = get_next_gemini_model()
-        prompt_instruction = f"""
-        أنت محاسب ذكي لنظام ERP مرن.
-        حلل الجملة التالية واستخرج البيانات بتنسيق JSON حصرياً بدون أي نصوص إضافية:
-        "{text}"
-        
-        الهيكل المطلوب:
-        - "type": "SALE" (للبيع أو المنصرف)، "PURCHASE" (للشراء أو الوارد)، أو "QUERY" (للاستعلام عن رصيد أو سعر).
-        - "item_name": اسم الصنف.
-        - "quantity": الكمية كرقم (اعتبرها 1 إن لم تذكر).
-        - "unit": وحدة القياس (مثل: طن، كيلو، توب، متر، كرتونة، قطعة).
-        - "unit_price": السعر إن وجد، وإلا 0.
-        """
-        response = model.generate_content(prompt_instruction)
-        cleaned_text = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(cleaned_text)
-    except Exception as e:
-        return {
-            "type": "QUERY" if "كم" in text or "سعر" in text else "SALE",
-            "item_name": text,
-            "quantity": 1,
-            "unit": "قطعة",
-            "unit_price": 0
-        }
 
 # --- 6. إدارة الجلسة والدخول ---
 if "logged_in" not in st.session_state:
@@ -270,11 +250,11 @@ else:
                 st.markdown(prompt)
 
             with st.chat_message("assistant"):
-                with st.spinner("🤖 جاري تحليل المعاملة بالذكاء الاصطناعي وتحديث المخزن والقاعدة..."):
-                    data = process_command_with_ai(prompt)
+                with st.spinner("🤖 جاري تحليل المعاملة بالذكاء الاصطناعي وجدول الذاكرة وتحديث المخزن..."):
+                    data = smart_process_command(prompt, branch=target_branch)
                     
                     if data.get("type") == "QUERY":
-                        response_text = f"🔍 تم استلام استعلامك بشأن: **{data.get('item_name', prompt)}** في فرع {target_branch}."
+                        response_text = f"🔍 {data.get('message_to_user', 'تم الاستعلام بنجاح.')} (الصنف: **{data.get('item_name', prompt)}**)"
                     else:
                         try:
                             qty = float(data.get("quantity", 1))
@@ -294,7 +274,8 @@ else:
                             }
                             supabase.table("transactions").insert(payload).execute()
                             
-                            response_text = f"""✅ **تمت معالجة العملية وتحديث المخزن أوتوماتيكياً ({target_branch})!**
+                            friendly_msg = data.get("message_to_user", "تمت المعالجة بنجاح.")
+                            response_text = f"""✅ **{friendly_msg}**
 - **النوع:** {'بيع / منصرف' if data.get('type')=='SALE' else 'شراء / وارد'}
 - **الصنف:** {data.get('item_name')}
 - **الكمية:** {qty} {data.get('unit')}
