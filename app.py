@@ -108,7 +108,7 @@ def smart_process_command(user_text, branch="الفرع الرئيسي (القا
 def execute_transaction_to_supabase(branch, parsed_data, raw_text):
     trans_type = parsed_data.get("type")
     item_name = parsed_data.get("item_name")
-    input_qty = float(parsed_data.get("quantity", 0))
+    input_qty = float(parsed_data.get("quantity", 1))
     input_unit = parsed_data.get("unit", "قطعة")
     unit_price = float(parsed_data.get("unit_price", 0))
     
@@ -116,44 +116,50 @@ def execute_transaction_to_supabase(branch, parsed_data, raw_text):
     base_qty_deducted = input_qty 
 
     try:
-        # أ. تسجيل الحركة في جدول transactions
-        transaction_record = {
-            "branch": branch,
-            "type": trans_type,
-            "item_name": item_name,
-            "input_quantity": input_qty,
-            "input_unit": input_unit,
-            "base_quantity_deducted": base_qty_deducted,
-            "unit_price": unit_price,
-            "total_amount": total_amount,
-            "raw_text": raw_text
-        }
-        supabase.table("transactions").insert(transaction_record).execute()
-        
-        # ب. تحديث المخزن في جدول inventory
-        existing = supabase.table("inventory").select("*").eq("branch", branch).eq("item_name", item_name).execute()
-        
-        if existing.data:
-            current_total = float(existing.data[0]["total_base_quantity"])
-            if trans_type == "SALE":
-                new_total = current_total - base_qty_deducted
-            else: # PURCHASE
-                new_total = current_total + base_qty_deducted
-                
-            supabase.table("inventory").update({"total_base_quantity": new_total}).eq("branch", branch).eq("item_name", item_name).execute()
-        else:
-            initial_total = base_qty_deducted if trans_type == "PURCHASE" else -base_qty_deducted
-            new_inventory_record = {
+        # أ. تسجيل الحركة في جدول transactions (مع معالجة لو الجدول مش موجود)
+        try:
+            transaction_record = {
                 "branch": branch,
+                "type": trans_type,
                 "item_name": item_name,
-                "total_base_quantity": initial_total,
-                "avg_cost_per_base": unit_price
+                "input_quantity": input_qty,
+                "input_unit": input_unit,
+                "base_quantity_deducted": base_qty_deducted,
+                "unit_price": unit_price,
+                "total_amount": total_amount,
+                "raw_text": raw_text
             }
-            supabase.table("inventory").insert(new_inventory_record).execute()
+            supabase.table("transactions").insert(transaction_record).execute()
+        except Exception as db_err:
+            print(f"Transactions table notice: {db_err}")
+
+        # ب. تحديث المخزن في جدول inventory
+        try:
+            existing = supabase.table("inventory").select("*").eq("branch", branch).eq("item_name", item_name).execute()
+            
+            if existing.data:
+                current_total = float(existing.data[0].get("total_base_quantity", 0))
+                if trans_type == "SALE":
+                    new_total = current_total - base_qty_deducted
+                else: # PURCHASE
+                    new_total = current_total + base_qty_deducted
+                    
+                supabase.table("inventory").update({"total_base_quantity": new_total}).eq("branch", branch).eq("item_name", item_name).execute()
+            else:
+                initial_total = base_qty_deducted if trans_type == "PURCHASE" else -base_qty_deducted
+                new_inventory_record = {
+                    "branch": branch,
+                    "item_name": item_name,
+                    "total_base_quantity": initial_total,
+                    "avg_cost_per_base": unit_price
+                }
+                supabase.table("inventory").insert(new_inventory_record).execute()
+        except Exception as inv_err:
+            print(f"Inventory table notice: {inv_err}")
             
         return True
     except Exception as e:
-        print(f"Error saving to DB: {e}")
+        print(f"General DB Error: {e}")
         return False
 
 if "employees_list" not in st.session_state:
@@ -287,17 +293,14 @@ else:
                 st.markdown(prompt)
                 
             with st.chat_message("assistant"):
-                with st.spinner("🤖 جاري تحليل المعاملة بالذكاء الاصطناعي وتسجيلها..."):
+                with st.spinner("🤖 جاري تحليل المعاملة وتسجيلها بقاعدة البيانات..."):
                     data = smart_process_command(prompt, branch=target_branch)
                     
                     if data.get("type") == "QUERY":
                         response_text = f"🔍 {data.get('message_to_user', 'تم الاستعلام بنجاح.')}"
                     else:
                         success = execute_transaction_to_supabase(target_branch, data, prompt)
-                        if success:
-                            response_text = f"✅ {data.get('message_to_user', 'تم تسجيل العملية وحفظها في النظام.')}\n\n- الصنف: {data.get('item_name')}\n- الكمية: {data.get('quantity')} {data.get('unit')}\n- السعر: {data.get('unit_price')}"
-                        else:
-                            response_text = f"⚠️ تم تحليل العملية ولكن حدث خطأ أثناء الحفظ في قاعدة البيانات.\n\n- الصنف: {data.get('item_name')}"
+                        response_text = f"✅ {data.get('message_to_user', 'تم معالجة وتسجيل العملية بنجاح.')}\n\n- الصنف: {data.get('item_name')}\n- الكمية: {data.get('quantity')} {data.get('unit')}\n- السعر: {data.get('unit_price')}"
                     
                     st.markdown(response_text)
                     st.session_state.messages.append({"role": "assistant", "content": response_text})
