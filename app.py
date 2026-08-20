@@ -1,13 +1,12 @@
 import os
 import streamlit as st
 import google.generativeai as genai
-import itertools
 import json
 from supabase import create_client, Client
 
 # --- 1. إعدادات الصفحة ---
 st.set_page_config(
-    page_title="المحاسب الذكي - Enterprise Pro",
+    page_title="المحاسب الذكي - نواة علي بابا",
     page_icon="💼",
     layout="wide"
 )
@@ -63,11 +62,36 @@ except Exception:
 genai.configure(api_key=gemini_api_key)
 
 def get_next_gemini_model():
-    return genai.GenerativeModel('gemini-3.6-flash')
+    return genai.GenerativeModel('gemini-2.5-flash')
+
+# --- 4.1 ضمان وجود الشركة والفرع في الجداول (تجهيز الـ IDs) ---
+def ensure_default_enterprise_setup(branch_name):
+    try:
+        comp_res = supabase.table("companies").select("id").limit(1).execute()
+        if comp_res.data and len(comp_res.data) > 0:
+            company_id = comp_res.data[0]["id"]
+        else:
+            new_comp = supabase.table("companies").insert({"name": "الشركة الافتراضية العامة"}).execute()
+            company_id = new_comp.data[0]["id"]
+            
+        branch_res = supabase.table("branches").select("id").eq("branch_name", branch_name).execute()
+        if branch_res.data and len(branch_res.data) > 0:
+            branch_id = branch_res.data[0]["id"]
+        else:
+            new_branch = supabase.table("branches").insert({
+                "company_id": company_id,
+                "branch_name": branch_name,
+                "is_main_branch": True if "الرئيسي" in branch_name else False
+            }).execute()
+            branch_id = new_branch.data[0]["id"]
+            
+        return company_id, branch_id
+    except Exception as e:
+        print(f"Setup error: {e}")
+        return None, None
 
 # --- 5. المعالجة الذكية بالاعتماد على جدول الذاكرة (business_rules) ---
 def smart_process_command(user_text, branch="الفرع الرئيسي (القاهرة)"):
-    """ دالة ذكية لمعالجة كلام التاجر باستخدام الجدول وذكاء Gemini """
     try:
         rules_res = supabase.table("business_rules").select("*").eq("branch", branch).execute()
         known_rules = rules_res.data if rules_res.data else []
@@ -104,7 +128,7 @@ def smart_process_command(user_text, branch="الفرع الرئيسي (القا
             "message_to_user": "تم استقبال الجملة وتجهيزها."
         }
 
-# --- 5.1 دالة تسجيل الحركة وتحديث المخزن في Supabase ---
+# --- 5.1 دالة التنفيذ مع حساب متوسط التكلفة المرجح (Weighted Average Cost) ---
 def execute_transaction_to_supabase(branch, parsed_data, raw_text):
     trans_type = parsed_data.get("type")
     item_name = parsed_data.get("item_name")
@@ -115,10 +139,14 @@ def execute_transaction_to_supabase(branch, parsed_data, raw_text):
     total_amount = input_qty * unit_price
     base_qty_deducted = input_qty 
 
+    company_id, branch_id = ensure_default_enterprise_setup(branch)
+
     try:
-        # أ. تسجيل الحركة في جدول transactions (مع معالجة لو الجدول مش موجود)
+        # أ. تسجيل الحركة في جدول transactions
         try:
             transaction_record = {
+                "company_id": company_id,
+                "branch_id": branch_id,
                 "branch": branch,
                 "type": trans_type,
                 "item_name": item_name,
@@ -130,21 +158,45 @@ def execute_transaction_to_supabase(branch, parsed_data, raw_text):
                 "raw_text": raw_text
             }
             supabase.table("transactions").insert(transaction_record).execute()
-        except Exception as db_err:
-            print(f"Transactions table notice: {db_err}")
+        except Exception as tx_err:
+            print(f"Transactions insert error: {tx_err}")
 
-        # ب. تحديث المخزن في جدول inventory
+        # ب. تسجيل القيد المحاسبي في journal_entries
+        try:
+            journal_record = {
+                "company_id": company_id,
+                "branch_id": branch_id,
+                "description": f"حركة {trans_type} للصنف: {item_name} - {raw_text}",
+                "total_amount": total_amount
+            }
+            supabase.table("journal_entries").insert(journal_record).execute()
+        except Exception as je_err:
+            print(f"Journal entries insert error: {je_err}")
+
+        # ج. تحديث المخزن وحساب متوسط التكلفة المرجح (Weighted Average Cost)
         try:
             existing = supabase.table("inventory").select("*").eq("branch", branch).eq("item_name", item_name).execute()
             
             if existing.data:
-                current_total = float(existing.data[0].get("total_base_quantity", 0))
-                if trans_type == "SALE":
-                    new_total = current_total - base_qty_deducted
-                else: # PURCHASE
+                item_row = existing.data[0]
+                current_total = float(item_row.get("total_base_quantity", 0))
+                current_avg_cost = float(item_row.get("avg_cost_per_base", 0))
+                
+                if trans_type == "PURCHASE":
                     new_total = current_total + base_qty_deducted
+                    # حساب متوسط التكلفة المتحرك الجديد
+                    if new_total > 0:
+                        new_avg_cost = ((current_total * current_avg_cost) + (base_qty_deducted * unit_price)) / new_total
+                    else:
+                        new_avg_cost = unit_price
+                else: # SALE
+                    new_total = current_total - base_qty_deducted
+                    new_avg_cost = current_avg_cost # متوسط التكلفة لا يتغير عند البيع
                     
-                supabase.table("inventory").update({"total_base_quantity": new_total}).eq("branch", branch).eq("item_name", item_name).execute()
+                supabase.table("inventory").update({
+                    "total_base_quantity": new_total,
+                    "avg_cost_per_base": new_avg_cost
+                }).eq("branch", branch).eq("item_name", item_name).execute()
             else:
                 initial_total = base_qty_deducted if trans_type == "PURCHASE" else -base_qty_deducted
                 new_inventory_record = {
@@ -155,152 +207,44 @@ def execute_transaction_to_supabase(branch, parsed_data, raw_text):
                 }
                 supabase.table("inventory").insert(new_inventory_record).execute()
         except Exception as inv_err:
-            print(f"Inventory table notice: {inv_err}")
+            print(f"Inventory update error: {inv_err}")
             
         return True
     except Exception as e:
         print(f"General DB Error: {e}")
         return False
 
-if "employees_list" not in st.session_state:
-    st.session_state.employees_list = [
-        {"id": 1, "name": "محمود", "role": "موظف مبيعات", "branch": "الفرع الرئيسي (القاهرة)", "permissions": ["تسجيل مبيعات", "استعلام عن الأسعار"]},
-        {"id": 2, "name": "إسلام", "role": "مسؤول مخازن", "branch": "الفرع الرئيسي (القاهرة)", "permissions": ["متابعة وجرد المخازن"]}
-    ]
-
-ALL_AVAILABLE_PERMISSIONS = [
-    "تسجيل مبيعات", "استعلام عن الأسعار", "متابعة وجرد المخازن", "تسجيل المصاريف", "متابعة التقارير المالية"
-]
-
-# --- 6. إدارة الجلسة والدخول ---
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.role = None
-    st.session_state.user_name = ""
-    st.session_state.branch = ""
-
+# --- 6. واجهة العرض وإدارة الجلسة ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if not st.session_state.logged_in:
-    st.markdown("""
-    <div class="hero-header">
-        <h1>🔐 نظام المحاسب الذكي - بوابة الدخول</h1>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        username = st.text_input("اسم المستخدم الإداري:", value="admin")
-        password = st.text_input("كلمة المرور:", type="password", value="1234")
-        
-        if st.button("دخول لوحة التحكم"):
-            if username == "admin" and password == "1234":
-                st.session_state.logged_in = True
-                st.session_state.role = "admin"
-                st.session_state.user_name = "صاحب المؤسسة"
-                st.session_state.branch = "الفرع الرئيسي (القاهرة)"
-                st.rerun()
-            else:
-                st.error("خطأ في بيانات الدخول.")
-else:
-    if st.session_state.role == "admin":
-        with st.sidebar:
-            st.markdown("### 👑 لوحة التحكم الإدارية")
-            st.write(f"مرحباً بك: **{st.session_state.user_name}**")
-            st.markdown("---")
-            admin_page = st.radio(
-                "اختر القسم:",
-                ["📊 متابعة العمليات والشات الذكي", "📦 جرد ومتابعة المخزن", "🛠️ إدارة الموظفين والصلاحيات"]
-            )
-            st.markdown("---")
-            if st.button("🚪 تسجيل الخروج"):
-                st.session_state.logged_in = False
-                st.session_state.role = None
-                st.rerun()
-    else:
-        admin_page = "📊 متابعة العمليات والشات الذكي"
-        if st.button("🚪 خروج"):
-            st.session_state.logged_in = False
-            st.rerun()
+target_branch = st.selectbox("📍 اختر الفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
 
-    if st.session_state.role == "admin" and admin_page == "📦 جرد ومتابعة المخزن":
-        st.markdown("""
-        <div class="hero-header">
-            <h2>📦 جرد ومتابعة المخزن اللحظي</h2>
-            <p>أرصدة الأصناف والكميات الحالية متحدثة أوتوماتيكياً</p>
-        </div>
-        """, unsafe_allow_html=True)
+st.markdown("""
+<div class="hero-header">
+    <h2>🤖 المحاسب الذكي - نواة علي بابا</h2>
+    <p>تخزين لحظي، قيود مزدوجة، وحسابات تكلفة متقدمة</p>
+</div>
+""", unsafe_allow_html=True)
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
         
-        target_branch = st.selectbox("📍 تصفية حسب الفرع:", ["الكل", "الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
+if prompt := st.chat_input("اكتب معاملتك هنا (مثال: اشترينا 5 طن زيت بـ 30000)..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
         
-        try:
-            query = supabase.table("inventory").select("*")
-            if target_branch != "الكل":
-                query = query.eq("branch", target_branch)
-            response = query.execute()
-            inventory_data = response.data
+    with st.chat_message("assistant"):
+        with st.spinner("🤖 جاري معالجة العملية وتسجيلها في نواة النظام..."):
+            data = smart_process_command(prompt, branch=target_branch)
             
-            if inventory_data:
-                st.dataframe(inventory_data, use_container_width=True)
+            if data.get("type") == "QUERY":
+                response_text = f"🔍 {data.get('message_to_user', 'تم الاستعلام بنجاح.')}"
             else:
-                st.info("لا توجد أصناف مسجلة في المخزن حتى الآن.")
-        except Exception as e:
-            st.error(f"خطأ في جلب بيانات المخزن: {e}")
-
-    elif st.session_state.role == "admin" and admin_page == "🛠️ إدارة الموظفين والصلاحيات":
-        st.markdown("""
-        <div class="hero-header">
-            <h2>🛠️ إدارة الموظفين والصلاحيات</h2>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        for i, emp in enumerate(st.session_state.employees_list):
-            c1, c2 = st.columns([1, 1])
-            with c1:
-                new_name = st.text_input(f"اسم الموظف {i+1}", value=emp["name"], key=f"name_{i}")
-                new_branch = st.selectbox(f"الفرع {i+1}", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"], index=0 if emp["branch"]=="الفرع الرئيسي (القاهرة)" else 1, key=f"br_{i}")
-            with c2:
-                default_perms = [p for p in emp["permissions"] if p in ALL_AVAILABLE_PERMISSIONS]
-                new_perms = st.multiselect(f"صلاحيات الموظف {i+1}", options=ALL_AVAILABLE_PERMISSIONS, default=default_perms, key=f"perms_{i}")
+                success = execute_transaction_to_supabase(target_branch, data, prompt)
+                response_text = f"✅ {data.get('message_to_user', 'تم تسجيل المعاملة وتحديث المخزن ومتوسط التكلفة بنجاح.')}\n\n- الصنف: {data.get('item_name')}\n- الكمية: {data.get('quantity')} {data.get('unit')}\n- السعر: {data.get('unit_price')}"
             
-            if st.button(f"💾 حفظ التعديلات للموظف {i+1}", key=f"save_{i}"):
-                st.session_state.employees_list[i]["name"] = new_name
-                st.session_state.employees_list[i]["branch"] = new_branch
-                st.session_state.employees_list[i]["permissions"] = new_perms
-                st.success("تم الحفظ بنجاح!")
-                st.rerun()
-            st.markdown("---")
-
-    else:
-        target_branch = st.selectbox("📍 اختر الفرع:", ["الفرع الرئيسي (القاهرة)", "فرع الإسكندرية"])
-        
-        st.markdown("""
-        <div class="hero-header">
-            <h2>🤖 المحاسب الذكي التفاعلي</h2>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.write(f"الفرع الحالي: **{target_branch}**")
-        
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-                
-        if prompt := st.chat_input("اكتب معاملتك هنا (مثال: اشترينا 5 طن زيت بـ 30000)..."):
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-                
-            with st.chat_message("assistant"):
-                with st.spinner("🤖 جاري تحليل المعاملة وتسجيلها بقاعدة البيانات..."):
-                    data = smart_process_command(prompt, branch=target_branch)
-                    
-                    if data.get("type") == "QUERY":
-                        response_text = f"🔍 {data.get('message_to_user', 'تم الاستعلام بنجاح.')}"
-                    else:
-                        success = execute_transaction_to_supabase(target_branch, data, prompt)
-                        response_text = f"✅ {data.get('message_to_user', 'تم معالجة وتسجيل العملية بنجاح.')}\n\n- الصنف: {data.get('item_name')}\n- الكمية: {data.get('quantity')} {data.get('unit')}\n- السعر: {data.get('unit_price')}"
-                    
-                    st.markdown(response_text)
-                    st.session_state.messages.append({"role": "assistant", "content": response_text})
+            st.markdown(response_text)
+            st.session_state.messages.append({"role": "assistant", "content": response_text})
