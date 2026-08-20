@@ -104,6 +104,58 @@ def smart_process_command(user_text, branch="الفرع الرئيسي (القا
             "message_to_user": "تم استقبال الجملة وتجهيزها."
         }
 
+# --- 5.1 دالة تسجيل الحركة وتحديث المخزن في Supabase ---
+def execute_transaction_to_supabase(branch, parsed_data, raw_text):
+    trans_type = parsed_data.get("type")
+    item_name = parsed_data.get("item_name")
+    input_qty = float(parsed_data.get("quantity", 0))
+    input_unit = parsed_data.get("unit", "قطعة")
+    unit_price = float(parsed_data.get("unit_price", 0))
+    
+    total_amount = input_qty * unit_price
+    base_qty_deducted = input_qty 
+
+    try:
+        # أ. تسجيل الحركة في جدول transactions
+        transaction_record = {
+            "branch": branch,
+            "type": trans_type,
+            "item_name": item_name,
+            "input_quantity": input_qty,
+            "input_unit": input_unit,
+            "base_quantity_deducted": base_qty_deducted,
+            "unit_price": unit_price,
+            "total_amount": total_amount,
+            "raw_text": raw_text
+        }
+        supabase.table("transactions").insert(transaction_record).execute()
+        
+        # ب. تحديث المخزن في جدول inventory
+        existing = supabase.table("inventory").select("*").eq("branch", branch).eq("item_name", item_name).execute()
+        
+        if existing.data:
+            current_total = float(existing.data[0]["total_base_quantity"])
+            if trans_type == "SALE":
+                new_total = current_total - base_qty_deducted
+            else: # PURCHASE
+                new_total = current_total + base_qty_deducted
+                
+            supabase.table("inventory").update({"total_base_quantity": new_total}).eq("branch", branch).eq("item_name", item_name).execute()
+        else:
+            initial_total = base_qty_deducted if trans_type == "PURCHASE" else -base_qty_deducted
+            new_inventory_record = {
+                "branch": branch,
+                "item_name": item_name,
+                "total_base_quantity": initial_total,
+                "avg_cost_per_base": unit_price
+            }
+            supabase.table("inventory").insert(new_inventory_record).execute()
+            
+        return True
+    except Exception as e:
+        print(f"Error saving to DB: {e}")
+        return False
+
 if "employees_list" not in st.session_state:
     st.session_state.employees_list = [
         {"id": 1, "name": "محمود", "role": "موظف مبيعات", "branch": "الفرع الرئيسي (القاهرة)", "permissions": ["تسجيل مبيعات", "استعلام عن الأسعار"]},
@@ -187,7 +239,7 @@ else:
                 st.dataframe(inventory_data, use_container_width=True)
             else:
                 st.info("لا توجد أصناف مسجلة في المخزن حتى الآن.")
-        except Exception as e:
+        exceptException as e:
             st.error(f"خطأ في جلب بيانات المخزن: {e}")
 
     elif st.session_state.role == "admin" and admin_page == "🛠️ إدارة الموظفين والصلاحيات":
@@ -235,14 +287,18 @@ else:
                 st.markdown(prompt)
                 
             with st.chat_message("assistant"):
-                with st.spinner("🤖 جاري تحليل المعاملة بالذكاء الاصطناعي..."):
+                with st.spinner("🤖 جاري تحليل المعاملة بالذكاء الاصطناعي وتسجيلها..."):
                     data = smart_process_command(prompt, branch=target_branch)
                     
                     if data.get("type") == "QUERY":
                         response_text = f"🔍 {data.get('message_to_user', 'تم الاستعلام بنجاح.')}"
                     else:
-                        response_text = f"✅ {data.get('message_to_user', 'تم تسجيل العملية.')}\n\n- الصنف: {data.get('item_name')}\n- الكمية: {data.get('quantity')} {data.get('unit')}\n- السعر: {data.get('unit_price')}"
+                        # تنفيذ التسجيل في قاعدة البيانات
+                        success = execute_transaction_to_supabase(target_branch, data, prompt)
+                        if success:
+                            response_text = f"✅ {data.get('message_to_user', 'تم تسجيل العملية وحفظها في النظام.')}\n\n- الصنف: {data.get('item_name')}\n- الكمية: {data.get('quantity')} {data.get('unit')}\n- السعر: {data.get('unit_price')}"
+                        else:
+                            response_text = f"⚠️ تم تحليل العملية ولكن حدث خطأ أثناء الحفظ في قاعدة البيانات.\n\n- الصنف: {data.get('item_name')}"
                     
                     st.markdown(response_text)
                     st.session_state.messages.append({"role": "assistant", "content": response_text})
-                    
