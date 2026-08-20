@@ -93,7 +93,7 @@ def ensure_default_enterprise_setup(branch_name):
         print(f"Setup error: {e}")
         return None, None
 
-# --- 5. المعالجة الذكية بالاعتماد على جدول الذاكرة (business_rules) ---
+# --- 5. المعالجة الذكية بالاعتماد على جدول الذاكرة (business_rules) وموديل gemini-3.6-flash ---
 def smart_process_command(user_text, branch="الفرع الرئيسي (القاهرة)"):
     try:
         rules_res = supabase.table("business_rules").select("*").eq("branch", branch).execute()
