@@ -239,7 +239,7 @@ else:
                 st.dataframe(inventory_data, use_container_width=True)
             else:
                 st.info("لا توجد أصناف مسجلة في المخزن حتى الآن.")
-        exceptException as e:
+        except Exception as e:
             st.error(f"خطأ في جلب بيانات المخزن: {e}")
 
     elif st.session_state.role == "admin" and admin_page == "🛠️ إدارة الموظفين والصلاحيات":
@@ -293,7 +293,6 @@ else:
                     if data.get("type") == "QUERY":
                         response_text = f"🔍 {data.get('message_to_user', 'تم الاستعلام بنجاح.')}"
                     else:
-                        # تنفيذ التسجيل في قاعدة البيانات
                         success = execute_transaction_to_supabase(target_branch, data, prompt)
                         if success:
                             response_text = f"✅ {data.get('message_to_user', 'تم تسجيل العملية وحفظها في النظام.')}\n\n- الصنف: {data.get('item_name')}\n- الكمية: {data.get('quantity')} {data.get('unit')}\n- السعر: {data.get('unit_price')}"
